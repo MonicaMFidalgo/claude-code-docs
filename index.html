@@ -1,0 +1,2096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code Memory System — Engineering Guide</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/markdown.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+  <style>
+    html { scroll-behavior: smooth; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #18181b; }
+    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+    .tab-btn {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #71717a;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+      cursor: pointer;
+      background: transparent;
+      border-top: none; border-left: none; border-right: none;
+    }
+    .tab-btn:hover { color: #e4e4e7; }
+    .tab-btn.tab-active { color: #a78bfa; border-bottom-color: #7c3aed; }
+
+    .code-block { margin-bottom: 1rem; border-radius: 0.5rem; overflow: hidden; border: 1px solid #27272a; }
+    .code-header { display: flex; align-items: center; justify-content: space-between; background: #1c1c1f; padding: 0.45rem 0.875rem; border-bottom: 1px solid #27272a; }
+    .code-filename { font-size: 0.7rem; font-family: ui-monospace, monospace; color: #71717a; }
+    .copy-btn { background: transparent; border: 1px solid #3f3f46; border-radius: 0.375rem; padding: 0.2rem 0.5rem; cursor: pointer; color: #71717a; font-size: 0.7rem; display: flex; align-items: center; gap: 0.25rem; transition: all 0.15s; }
+    .copy-btn:hover { background: #27272a; color: #a1a1aa; border-color: #52525b; }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; }
+    .code-block pre { margin: 0 !important; border-radius: 0 !important; }
+    .code-block pre code { border-radius: 0 !important; }
+
+    .sidebar-link { display: flex; align-items: center; padding: 0.3rem 0.75rem 0.3rem 1rem; font-size: 0.8rem; color: #71717a; border-left: 2px solid transparent; transition: all 0.15s; text-decoration: none; cursor: pointer; line-height: 1.5; }
+    .sidebar-link:hover { color: #a1a1aa; background: rgba(39,39,42,0.5); }
+    .sidebar-link.active { color: #a78bfa; border-left-color: #7c3aed; background: rgba(124,58,237,0.08); }
+    .sidebar-group-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #818cf8; padding: 0.875rem 1rem 0.25rem; border-top: 1px solid rgba(63,63,70,0.6); margin-top: 0.125rem; }
+    .sidebar-group-label:first-child { border-top: none; margin-top: 0; }
+
+    .callout { display: flex; gap: 0.75rem; padding: 0.875rem 1rem; border-radius: 0.5rem; margin-bottom: 1rem; font-size: 0.875rem; line-height: 1.65; }
+    .callout-info { background: rgba(59,130,246,0.07); border: 1px solid rgba(59,130,246,0.2); color: #93c5fd; }
+    .callout-warning { background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.2); color: #fde68a; }
+    .callout-good { background: rgba(52,211,153,0.07); border: 1px solid rgba(52,211,153,0.2); color: #6ee7b7; }
+    .callout-icon { flex-shrink: 0; font-size: 0.875rem; margin-top: 0.1rem; }
+
+    .memory-badge { font-size: 0.65rem; font-family: ui-monospace, monospace; padding: 0.15rem 0.55rem; border-radius: 9999px; font-weight: 700; display: inline-block; }
+    .badge-user { background: rgba(139,92,246,0.2); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.35); }
+    .badge-feedback { background: rgba(52,211,153,0.2); color: #6ee7b7; border: 1px solid rgba(52,211,153,0.35); }
+    .badge-project { background: rgba(59,130,246,0.2); color: #93c5fd; border: 1px solid rgba(59,130,246,0.35); }
+    .badge-reference { background: rgba(251,191,36,0.2); color: #fde68a; border: 1px solid rgba(251,191,36,0.35); }
+
+    .doc-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+    .doc-table th { text-align: left; padding: 0.5rem 0.75rem; background: #1c1c1f; color: #a1a1aa; font-weight: 600; border: 1px solid #27272a; }
+    .doc-table td { padding: 0.5rem 0.75rem; border: 1px solid #27272a; color: #d4d4d8; vertical-align: top; }
+    .doc-table tr:hover td { background: rgba(39,39,42,0.4); }
+
+    .search-result-item { display: block; padding: 0.6rem 1rem; cursor: pointer; border-bottom: 1px solid #27272a; }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover, .search-result-item.focused { background: #27272a; }
+
+    mark.sh { background: rgba(245,158,11,0.25); color: inherit; border-radius: 2px; padding: 0 2px; }
+
+    .checklist { list-style: none; padding: 0; margin: 0; }
+    .checklist li { display: flex; gap: 0.75rem; padding: 0.375rem 0; color: #d4d4d8; font-size: 0.875rem; line-height: 1.6; }
+    .checklist li::before { content: "□"; color: #7c3aed; flex-shrink: 0; font-size: 1rem; line-height: 1.5; }
+
+    .section-header { font-size: 1.25rem; font-weight: 700; color: #f4f4f5; margin-bottom: 0.25rem; }
+    .section-desc { font-size: 0.875rem; color: #71717a; margin-bottom: 1.25rem; }
+
+    @media (max-width: 767px) {
+      #sidebar { display: none; }
+      #main-content { margin-left: 0 !important; }
+    }
+
+    .prose-p { color: #d4d4d8; font-size: 0.875rem; line-height: 1.7; margin-bottom: 0.875rem; }
+    .prose-h3 { font-size: 0.9375rem; font-weight: 600; color: #e4e4e7; margin: 1.25rem 0 0.5rem; }
+    .prose-li { color: #d4d4d8; font-size: 0.875rem; line-height: 1.7; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100" style="font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;">
+
+<!-- ═══════════════════ TOP NAV ═══════════════════ -->
+<nav class="fixed top-0 left-0 right-0 h-16 z-50 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between px-5" style="backdrop-filter: blur(12px);">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm" style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">C</div>
+    <span class="font-semibold text-zinc-100 text-sm">Claude Code</span>
+    <span class="text-zinc-600 text-sm">/</span>
+    <span class="text-zinc-400 text-sm hidden sm:inline">Memory System Guide</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="text-xs text-zinc-500 border border-zinc-700 rounded px-2 py-1 hidden sm:inline">v2.1.59+</span>
+    <div id="search-container" class="relative">
+      <input id="search-input" type="search" placeholder="Search docs..." autocomplete="off"
+        class="w-56 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-violet-500 transition-colors"
+        style="font-size: 0.8125rem;">
+      <div id="search-dropdown" class="absolute top-full mt-1 right-0 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl z-50 hidden overflow-hidden" style="width: 380px; max-height: 360px; overflow-y: auto;">
+        <div id="search-results"></div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="flex" style="padding-top: 4rem;">
+
+  <!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+  <aside id="sidebar" class="fixed top-16 left-0 bg-zinc-900 border-r border-zinc-800 overflow-y-auto z-40 py-4" style="width: 220px; height: calc(100vh - 4rem);">
+    <nav>
+      <p class="sidebar-group-label">Overview</p>
+      <a href="#hero" class="sidebar-link" data-sidebar-link="hero">Introduction</a>
+
+      <p class="sidebar-group-label">CLAUDE.md</p>
+      <a href="#claudemd" class="sidebar-link" data-sidebar-link="claudemd">Overview</a>
+      <a href="#claudemd" class="sidebar-link" data-sidebar-link="claudemd" data-tab-target="locations" data-tab-group-target="claudemd">File Locations</a>
+      <a href="#claudemd" class="sidebar-link" data-sidebar-link="claudemd" data-tab-target="instructions" data-tab-group-target="claudemd">Writing Instructions</a>
+      <a href="#claudemd" class="sidebar-link" data-sidebar-link="claudemd" data-tab-target="imports" data-tab-group-target="claudemd">Import Syntax</a>
+      <a href="#claudemd" class="sidebar-link" data-sidebar-link="claudemd" data-tab-target="path-rules" data-tab-group-target="claudemd">Path Rules</a>
+      <a href="#claudemd" class="sidebar-link" data-sidebar-link="claudemd" data-tab-target="local-overrides" data-tab-group-target="claudemd">Local Overrides</a>
+
+      <p class="sidebar-group-label">Auto Memory</p>
+      <a href="#auto-memory" class="sidebar-link" data-sidebar-link="auto-memory">What Is It</a>
+      <a href="#auto-memory" class="sidebar-link" data-sidebar-link="auto-memory" data-tab-target="memory-types" data-tab-group-target="auto-memory">Memory Types</a>
+      <a href="#auto-memory" class="sidebar-link" data-sidebar-link="auto-memory" data-tab-target="storage" data-tab-group-target="auto-memory">Storage & Index</a>
+      <a href="#auto-memory" class="sidebar-link" data-sidebar-link="auto-memory" data-tab-target="memory-cmd" data-tab-group-target="auto-memory">/memory Command</a>
+
+      <p class="sidebar-group-label">Best Practices</p>
+      <a href="#best-practices" class="sidebar-link" data-sidebar-link="best-practices">File Hygiene</a>
+      <a href="#best-practices" class="sidebar-link" data-sidebar-link="best-practices" data-tab-target="writing-quality" data-tab-group-target="best-practices">Writing Quality</a>
+      <a href="#best-practices" class="sidebar-link" data-sidebar-link="best-practices" data-tab-target="modular-rules" data-tab-group-target="best-practices">Modular Rules</a>
+      <a href="#best-practices" class="sidebar-link" data-sidebar-link="best-practices" data-tab-target="sharing-rules" data-tab-group-target="best-practices">Sharing Rules</a>
+
+      <p class="sidebar-group-label">Troubleshooting</p>
+      <a href="#troubleshooting" class="sidebar-link" data-sidebar-link="troubleshooting">Not Followed</a>
+      <a href="#troubleshooting" class="sidebar-link" data-sidebar-link="troubleshooting" data-tab-target="after-compact" data-tab-group-target="troubleshooting">After /compact</a>
+      <a href="#troubleshooting" class="sidebar-link" data-sidebar-link="troubleshooting" data-tab-target="too-large" data-tab-group-target="troubleshooting">File Too Large</a>
+      <a href="#troubleshooting" class="sidebar-link" data-sidebar-link="troubleshooting" data-tab-target="inspect-memory" data-tab-group-target="troubleshooting">Inspect Memory</a>
+
+      <p class="sidebar-group-label">Tools</p>
+      <a href="#inspector" class="sidebar-link" data-sidebar-link="inspector">CLAUDE.md Inspector</a>
+      <a href="#full-audit" class="sidebar-link" data-sidebar-link="full-audit">Full Project Audit</a>
+    </nav>
+  </aside>
+
+  <!-- ═══════════════════ MAIN CONTENT ═══════════════════ -->
+  <main id="main-content" class="flex-1 min-w-0 px-8 py-8" style="margin-left: 220px; max-width: min(1100px, calc(100vw - 240px));">
+
+    <!-- ─── HERO ─── -->
+    <section id="hero" class="mb-10">
+      <div class="rounded-2xl p-8 border border-zinc-800" style="background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(79,70,229,0.05));">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="text-xs font-semibold text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-3 py-1">Internal Reference</span>
+        </div>
+        <h1 class="text-3xl font-bold text-white mb-3">Claude Code Memory System</h1>
+        <p class="text-zinc-400 text-base mb-8 max-w-xl leading-relaxed">
+          Two complementary systems give Claude persistent context about your project, preferences, and working style — so you never repeat yourself across sessions.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+          <div class="rounded-xl p-5 border" style="background: rgba(124,58,237,0.07); border-color: rgba(124,58,237,0.25);">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-lg">📄</span>
+              <code class="text-xs bg-violet-500/15 text-violet-300 px-2 py-0.5 rounded font-mono">CLAUDE.md</code>
+            </div>
+            <h2 class="text-white font-semibold text-sm mb-1">Developer-Written</h2>
+            <p class="text-zinc-400 text-xs leading-relaxed">You write the rules. Project-level, committed to git, always loaded at startup.</p>
+            <div class="mt-3 text-xs text-violet-400 font-mono">written by: you</div>
+          </div>
+          <div class="rounded-xl p-5 border" style="background: rgba(52,211,153,0.07); border-color: rgba(52,211,153,0.25);">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-lg">🧠</span>
+              <code class="text-xs bg-emerald-500/15 text-emerald-300 px-2 py-0.5 rounded font-mono">Auto Memory</code>
+            </div>
+            <h2 class="text-white font-semibold text-sm mb-1">Claude-Written</h2>
+            <p class="text-zinc-400 text-xs leading-relaxed">Claude saves corrections and preferences automatically. Machine-local, not committed.</p>
+            <div class="mt-3 text-xs text-emerald-400 font-mono">written by: Claude</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── SECTION: CLAUDE.md ─── -->
+    <section id="claudemd" class="mb-8">
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div class="px-6 pt-6 pb-0 border-l-4 border-violet-500">
+          <h2 class="section-header">CLAUDE.md Files</h2>
+          <p class="section-desc">Persistent developer-controlled instructions that load automatically at every session start.</p>
+        </div>
+
+        <div data-tab-group="claudemd">
+          <div class="flex border-b border-zinc-800 px-6 overflow-x-auto" style="gap: 0;">
+            <button class="tab-btn tab-active" data-tab-trigger="overview">Overview</button>
+            <button class="tab-btn" data-tab-trigger="locations">File Locations</button>
+            <button class="tab-btn" data-tab-trigger="instructions">Writing Instructions</button>
+            <button class="tab-btn" data-tab-trigger="imports">Import Syntax</button>
+            <button class="tab-btn" data-tab-trigger="path-rules">Path Rules</button>
+            <button class="tab-btn" data-tab-trigger="local-overrides">Local Overrides</button>
+            <button class="tab-btn" data-tab-trigger="init-command">/init Command</button>
+          </div>
+
+          <!-- OVERVIEW -->
+          <div data-tab-panel="overview" data-searchable data-section="claudemd" data-tab-label="Overview" data-section-title="CLAUDE.md Files" class="p-6">
+            <p class="prose-p">
+              <code class="text-violet-300 bg-violet-500/10 px-1.5 py-0.5 rounded text-xs font-mono">CLAUDE.md</code> is a plain Markdown file you create in your project. Claude reads it at the start of every session — before you type anything — giving it persistent context about your codebase, conventions, and expectations.
+            </p>
+            <div class="callout callout-info">
+              <span class="callout-icon">💡</span>
+              <span>Think of CLAUDE.md as your team's coding conventions document, permanently injected into Claude's context. Anything you'd normally explain to a new engineer on day one belongs here.</span>
+            </div>
+            <p class="prose-h3">What to put in it</p>
+            <ul class="space-y-1 mb-4">
+              <li class="prose-li flex gap-2"><span class="text-violet-400 mt-0.5">›</span><span>Build and test commands (<code class="text-xs font-mono text-violet-300">npm test</code>, <code class="text-xs font-mono text-violet-300">yarn build</code>)</span></li>
+              <li class="prose-li flex gap-2"><span class="text-violet-400 mt-0.5">›</span><span>Project architecture and key directories</span></li>
+              <li class="prose-li flex gap-2"><span class="text-violet-400 mt-0.5">›</span><span>Coding standards and naming conventions</span></li>
+              <li class="prose-li flex gap-2"><span class="text-violet-400 mt-0.5">›</span><span>Patterns to use and patterns to avoid</span></li>
+              <li class="prose-li flex gap-2"><span class="text-violet-400 mt-0.5">›</span><span>Common workflows and gotchas</span></li>
+            </ul>
+            <p class="prose-h3">When does it load?</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+              <div class="rounded-lg p-4 border border-zinc-700 bg-zinc-800/50">
+                <div class="text-xs font-semibold text-zinc-400 mb-1">Project-root CLAUDE.md</div>
+                <p class="text-xs text-zinc-400 leading-relaxed">Loads at every session start. Survives <code class="font-mono">/compact</code>. Committed to git — shared with your team.</p>
+              </div>
+              <div class="rounded-lg p-4 border border-zinc-700 bg-zinc-800/50">
+                <div class="text-xs font-semibold text-zinc-400 mb-1">Sub-directory CLAUDE.md</div>
+                <p class="text-xs text-zinc-400 leading-relaxed">Loads on demand when Claude reads files in that directory. Reloads after <code class="font-mono">/compact</code> as needed.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FILE LOCATIONS -->
+          <div data-tab-panel="locations" data-searchable data-section="claudemd" data-tab-label="File Locations" data-section-title="CLAUDE.md Files" class="p-6">
+            <p class="prose-p">Claude discovers CLAUDE.md files by walking up the directory tree from your current working directory. All discovered files are concatenated — they don't override each other.</p>
+            <div class="overflow-x-auto mb-4">
+              <table class="doc-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>macOS path</th>
+                    <th>Linux / WSL</th>
+                    <th>Windows</th>
+                    <th>Committed?</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="font-semibold text-zinc-200">Managed Policy</span><br><span class="text-zinc-500 text-xs">Org-wide, cannot be excluded</span></td>
+                    <td><code class="text-xs font-mono text-violet-300">/Library/Application Support/ClaudeCode/CLAUDE.md</code></td>
+                    <td><code class="text-xs font-mono text-violet-300">/etc/claude-code/CLAUDE.md</code></td>
+                    <td><code class="text-xs font-mono text-violet-300">C:\Program Files\ClaudeCode\CLAUDE.md</code></td>
+                    <td><span class="text-zinc-500">No</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="font-semibold text-zinc-200">User</span><br><span class="text-zinc-500 text-xs">All projects for this user</span></td>
+                    <td colspan="3"><code class="text-xs font-mono text-violet-300">~/.claude/CLAUDE.md</code></td>
+                    <td><span class="text-zinc-500">No</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="font-semibold text-zinc-200">Project Root</span><br><span class="text-zinc-500 text-xs">Entire project, shared with team</span></td>
+                    <td colspan="3"><code class="text-xs font-mono text-violet-300">./CLAUDE.md</code> or <code class="text-xs font-mono text-violet-300">./.claude/CLAUDE.md</code></td>
+                    <td><span class="text-emerald-400 text-xs font-semibold">Yes ✓</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="font-semibold text-zinc-200">Sub-directory</span><br><span class="text-zinc-500 text-xs">Only when working in that dir</span></td>
+                    <td colspan="3"><code class="text-xs font-mono text-violet-300">./src/CLAUDE.md</code> (any subdirectory)</td>
+                    <td><span class="text-emerald-400 text-xs font-semibold">Yes ✓</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="font-semibold text-zinc-200">Local Override</span><br><span class="text-zinc-500 text-xs">Personal preferences, not shared</span></td>
+                    <td colspan="3"><code class="text-xs font-mono text-violet-300">./CLAUDE.local.md</code></td>
+                    <td><span class="text-amber-400 text-xs font-semibold">No (gitignore)</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ</span>
+              <span>Loading order: <strong>Managed Policy</strong> → <strong>User</strong> → <strong>Project Root</strong> → <strong>Sub-directory</strong> → <strong>Local Override</strong>. Files closer to your project take precedence for conflicting instructions.</span>
+            </div>
+          </div>
+
+          <!-- WRITING INSTRUCTIONS -->
+          <div data-tab-panel="instructions" data-searchable data-section="claudemd" data-tab-label="Writing Instructions" data-section-title="CLAUDE.md Files" class="p-6">
+            <p class="prose-p">The quality of your CLAUDE.md directly impacts how well Claude follows it. Vague instructions produce inconsistent results; specific, verifiable instructions produce consistent results.</p>
+
+            <p class="prose-h3">The verifiability test</p>
+            <p class="prose-p">Before adding any instruction, ask: <em>"Could I verify this with a grep, linter, or test?"</em> If not, it's too vague.</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+              <div>
+                <div class="text-xs font-semibold text-red-400 mb-2 flex items-center gap-1.5">
+                  <span>✗</span> Vague (avoid)
+                </div>
+                <div class="code-block" data-filename="CLAUDE.md — bad example">
+                  <pre><code class="language-markdown"># Rules
+Write clean, readable code.
+Use good naming conventions.
+Handle errors properly.
+Follow best practices.</code></pre>
+                </div>
+              </div>
+              <div>
+                <div class="text-xs font-semibold text-emerald-400 mb-2 flex items-center gap-1.5">
+                  <span>✓</span> Specific (use this)
+                </div>
+                <div class="code-block" data-filename="CLAUDE.md — good example">
+                  <pre><code class="language-markdown"># Rules
+- Max line length: 100 chars (enforced by ESLint)
+- All functions must have JSDoc comments
+- Use named exports only (no default exports)
+- Errors: always use Result&lt;T, E&gt; pattern,
+  never throw unless crossing async boundaries
+- Test files must use describe/it nesting</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <p class="prose-h3">Key guidelines</p>
+            <ul class="space-y-2 mb-4">
+              <li class="prose-li flex gap-2"><span class="text-violet-400 mt-0.5">›</span><span>Keep the file <strong class="text-zinc-200">under 200 lines</strong> — Claude may truncate larger files silently</span></li>
+              <li class="prose-li flex gap-2"><span class="text-violet-400 mt-0.5">›</span><span>Use <strong class="text-zinc-200">markdown headers</strong> to organize sections (Build, Test, Conventions, etc.)</span></li>
+              <li class="prose-li flex gap-2"><span class="text-violet-400 mt-0.5">›</span><span><strong class="text-zinc-200">Review periodically</strong> — remove outdated or conflicting rules</span></li>
+              <li class="prose-li flex gap-2"><span class="text-violet-400 mt-0.5">›</span><span>Stick to <strong class="text-zinc-200">facts Claude needs in every session</strong> — don't include ephemeral context</span></li>
+            </ul>
+            <div class="callout callout-warning">
+              <span class="callout-icon">⚠</span>
+              <span>Claude silently truncates CLAUDE.md beyond its context limit — you won't get an error. Instructions past the threshold simply vanish. Check your line count with <code class="font-mono text-xs">wc -l CLAUDE.md</code>.</span>
+            </div>
+          </div>
+
+          <!-- IMPORT SYNTAX -->
+          <div data-tab-panel="imports" data-searchable data-section="claudemd" data-tab-label="Import Syntax" data-section-title="CLAUDE.md Files" class="p-6">
+            <p class="prose-p">
+              When your CLAUDE.md grows beyond 200 lines, split it using the <code class="text-violet-300 font-mono bg-violet-500/10 px-1 rounded text-xs">@path/to/file</code> import syntax. Place the directive on its own line — both relative and absolute paths work. Imports support up to 5 levels of nesting.
+            </p>
+
+            <div class="code-block" data-filename="CLAUDE.md">
+              <pre><code class="language-markdown"># Project Rules
+
+See @README.md for the project overview.
+Available commands: @package.json
+
+@.claude/rules/typescript.md
+@.claude/rules/testing.md
+@.claude/rules/api-design.md
+@docs/architecture-decisions.md
+
+## Global Rules
+Always prefer functional components.
+Run `npm test` before marking a task done.</code></pre>
+            </div>
+
+            <p class="prose-h3">.claude/rules/ directory</p>
+            <p class="prose-p">For modular, topic-focused rules, place Markdown files in <code class="text-violet-300 font-mono bg-violet-500/10 px-1 rounded text-xs">.claude/rules/</code>. Files without a <code class="text-violet-300 font-mono bg-violet-500/10 px-1 rounded text-xs">paths:</code> frontmatter load at launch like a regular CLAUDE.md import.</p>
+
+            <div class="code-block" data-filename="Terminal — typical structure">
+              <pre><code class="language-bash">.claude/
+├── rules/
+│   ├── typescript.md      # TypeScript conventions
+│   ├── testing.md         # Test file rules
+│   ├── api-design.md      # API patterns
+│   └── security.md        # Auth & security rules
+├── CLAUDE.md              # Root project rules (uses @imports)
+└── CLAUDE.local.md        # Personal overrides (gitignored)</code></pre>
+            </div>
+
+            <div class="callout callout-good">
+              <span class="callout-icon">✓</span>
+              <span>Imports are resolved relative to the file containing the <code class="text-xs font-mono">@</code> directive. So <code class="text-xs font-mono">@.claude/rules/testing.md</code> in your project root CLAUDE.md resolves from the project root.</span>
+            </div>
+          </div>
+
+          <!-- PATH RULES -->
+          <div data-tab-panel="path-rules" data-searchable data-section="claudemd" data-tab-label="Path Rules" data-section-title="CLAUDE.md Files" class="p-6">
+            <p class="prose-p">
+              Add YAML frontmatter with a <code class="text-violet-300 font-mono bg-violet-500/10 px-1 rounded text-xs">paths:</code> field to a rules file to scope it to specific file patterns. Claude only applies those rules when working with matching files — keeping context focused and relevant.
+            </p>
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ</span>
+              <span>Path patterns use glob syntax. Use <code class="font-mono text-xs">**</code> for any directory depth, <code class="font-mono text-xs">*.ts</code> for file extensions, and brace expansion like <code class="font-mono text-xs">*.{ts,tsx}</code>.</span>
+            </div>
+
+            <div class="code-block" data-filename=".claude/rules/api-handlers.md">
+              <pre><code class="language-yaml">---
+paths:
+  - "src/api/**"
+  - "src/routes/**"
+---</code></pre>
+              <pre><code class="language-markdown"># API Handler Rules
+
+- Validate all request bodies with Zod before processing
+- Return `{ success: false, error: string }` on all error paths
+- Log every 4xx and 5xx response with `logger.warn()`
+- Never expose stack traces or internal error details in responses
+- All handlers must be wrapped in the `withAuth` middleware</code></pre>
+            </div>
+
+            <div class="code-block" data-filename=".claude/rules/tests.md">
+              <pre><code class="language-yaml">---
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "src/tests/**"
+---</code></pre>
+              <pre><code class="language-markdown"># Test File Rules
+
+- Use `describe` + `it` nesting (never bare `test()`)
+- Mock all external HTTP calls with `msw` — no real network calls in tests
+- Each test file must have `beforeEach(() => jest.clearAllMocks())`
+- Use `expect.assertions(N)` in async tests to catch silent misses
+- Do NOT mock the database — tests must hit the real test DB</code></pre>
+            </div>
+
+            <div class="callout callout-good">
+              <span class="callout-icon">✓</span>
+              <span>Path-scoped rules prevent context bloat. Your API handler rules won't clutter Claude's context when you're editing a React component.</span>
+            </div>
+          </div>
+
+          <!-- LOCAL OVERRIDES -->
+          <div data-tab-panel="local-overrides" data-searchable data-section="claudemd" data-tab-label="Local Overrides" data-section-title="CLAUDE.md Files" class="p-6">
+            <p class="prose-p">
+              <code class="text-violet-300 font-mono bg-violet-500/10 px-1 rounded text-xs">CLAUDE.local.md</code> is your personal project preferences — it loads alongside CLAUDE.md but is never committed. Add it to <code class="text-violet-300 font-mono bg-violet-500/10 px-1 rounded text-xs">.gitignore</code> to keep it private.
+            </p>
+
+            <div class="code-block" data-filename="CLAUDE.local.md">
+              <pre><code class="language-markdown"># My Local Preferences
+
+- I'm on the Payments team — when suggesting code locations,
+  prefer src/payments/ over other directories
+- Use verbose logging during development; console.debug is fine here
+- When suggesting a refactor, show me the diff first — don't apply directly
+- My local dev DB is at postgres://localhost:5432/payments_dev</code></pre>
+            </div>
+
+            <div class="code-block" data-filename=".gitignore">
+              <pre><code class="language-bash"># Personal Claude preferences — do not commit
+CLAUDE.local.md</code></pre>
+            </div>
+
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ</span>
+              <span>Use CLAUDE.local.md for sandbox URLs, preferred test data, personal communication style preferences, and any dev environment details specific to your machine.</span>
+            </div>
+          </div>
+
+          <!-- INIT COMMAND -->
+          <div data-tab-panel="init-command" data-searchable data-section="claudemd" data-tab-label="/init Command" data-section-title="CLAUDE.md Files" class="p-6">
+            <p class="prose-p">
+              The <code class="text-violet-300 font-mono bg-violet-500/10 px-1 rounded text-xs">/init</code> command scans your project and generates a starter CLAUDE.md automatically. It's the fastest way to bootstrap a new project.
+            </p>
+
+            <div class="space-y-3 mb-5">
+              <div class="flex gap-4 items-start">
+                <div class="w-7 h-7 rounded-full bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-400 text-xs font-bold flex-shrink-0 mt-0.5">1</div>
+                <div>
+                  <p class="text-sm font-medium text-zinc-200">Open Claude Code in your project root</p>
+                  <div class="code-block mt-2" data-filename="Terminal">
+                    <pre><code class="language-bash">cd /path/to/your/project
+claude</code></pre>
+                  </div>
+                </div>
+              </div>
+              <div class="flex gap-4 items-start">
+                <div class="w-7 h-7 rounded-full bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-400 text-xs font-bold flex-shrink-0 mt-0.5">2</div>
+                <div>
+                  <p class="text-sm font-medium text-zinc-200">Run the init command</p>
+                  <div class="code-block mt-2" data-filename="Claude Code prompt">
+                    <pre><code class="language-bash">/init</code></pre>
+                  </div>
+                </div>
+              </div>
+              <div class="flex gap-4 items-start">
+                <div class="w-7 h-7 rounded-full bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-400 text-xs font-bold flex-shrink-0 mt-0.5">3</div>
+                <div>
+                  <p class="text-sm font-medium text-zinc-200">Claude scans your codebase</p>
+                  <p class="text-xs text-zinc-500 mt-1">It reads your package.json, detects your framework, and generates a contextual draft covering build commands, test setup, and project structure.</p>
+                </div>
+              </div>
+              <div class="flex gap-4 items-start">
+                <div class="w-7 h-7 rounded-full bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-400 text-xs font-bold flex-shrink-0 mt-0.5">4</div>
+                <div>
+                  <p class="text-sm font-medium text-zinc-200">Review and customize the generated file</p>
+                  <p class="text-xs text-zinc-500 mt-1">The draft is a starting point — add your team's conventions, patterns to avoid, and architectural decisions.</p>
+                </div>
+              </div>
+            </div>
+            <div class="callout callout-warning">
+              <span class="callout-icon">⚠</span>
+              <span>Don't commit the /init draft as-is. Review it, trim anything incorrect, and add the team-specific conventions that Claude couldn't infer from code alone.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── SECTION: AUTO MEMORY ─── -->
+    <section id="auto-memory" class="mb-8">
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div class="px-6 pt-6 pb-0 border-l-4 border-emerald-500">
+          <h2 class="section-header">Auto Memory</h2>
+          <p class="section-desc">Notes Claude writes itself based on your corrections, preferences, and ongoing project context. Requires Claude Code v2.1.59+.</p>
+        </div>
+
+        <div data-tab-group="auto-memory">
+          <div class="flex border-b border-zinc-800 px-6 overflow-x-auto" style="gap: 0;">
+            <button class="tab-btn tab-active" data-tab-trigger="what-is-it">What Is It</button>
+            <button class="tab-btn" data-tab-trigger="memory-types">Memory Types</button>
+            <button class="tab-btn" data-tab-trigger="storage">Storage & Index</button>
+            <button class="tab-btn" data-tab-trigger="memory-cmd">/memory Command</button>
+            <button class="tab-btn" data-tab-trigger="version-req">Version Info</button>
+          </div>
+
+          <!-- WHAT IS IT -->
+          <div data-tab-panel="what-is-it" data-searchable data-section="auto-memory" data-tab-label="What Is It" data-section-title="Auto Memory" class="p-6">
+            <p class="prose-p">Auto memory lets Claude remember what it learned last session — your corrections, confirmed patterns, active projects — without you having to re-explain every time. Claude decides what's worth saving based on future utility.</p>
+
+            <div class="overflow-x-auto mb-5">
+              <table class="doc-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>CLAUDE.md</th>
+                    <th>Auto Memory</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="text-zinc-400 font-medium">Written by</td>
+                    <td>Developer</td>
+                    <td>Claude</td>
+                  </tr>
+                  <tr>
+                    <td class="text-zinc-400 font-medium">Triggered by</td>
+                    <td>Always at startup</td>
+                    <td>Corrections, preferences, explicit asks</td>
+                  </tr>
+                  <tr>
+                    <td class="text-zinc-400 font-medium">Committed to repo?</td>
+                    <td class="text-emerald-400">Yes (usually)</td>
+                    <td class="text-zinc-400">No — machine-local only</td>
+                  </tr>
+                  <tr>
+                    <td class="text-zinc-400 font-medium">Shared with team?</td>
+                    <td class="text-emerald-400">Yes</td>
+                    <td class="text-zinc-400">No — per-machine, per-user</td>
+                  </tr>
+                  <tr>
+                    <td class="text-zinc-400 font-medium">Survives /compact?</td>
+                    <td>Project root does</td>
+                    <td class="text-emerald-400">Yes</td>
+                  </tr>
+                  <tr>
+                    <td class="text-zinc-400 font-medium">Human-editable?</td>
+                    <td class="text-emerald-400">Yes (it's your file)</td>
+                    <td class="text-emerald-400">Yes (via /memory or directly)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="callout callout-good">
+              <span class="callout-icon">✓</span>
+              <span>Auto memory is additive — it supplements CLAUDE.md, it doesn't replace it. Use CLAUDE.md for team-wide rules, and auto memory for individual preferences and learnings.</span>
+            </div>
+          </div>
+
+          <!-- MEMORY TYPES -->
+          <div data-tab-panel="memory-types" data-searchable data-section="auto-memory" data-tab-label="Memory Types" data-section-title="Auto Memory" class="p-6">
+            <p class="prose-p mb-4">Auto memory is organized into four types. Each has a specific purpose — knowing which type to use (or ask Claude to use) makes memories more findable and useful.</p>
+
+            <div class="grid grid-cols-1 gap-4">
+
+              <!-- user -->
+              <div class="rounded-lg border border-zinc-700 bg-zinc-800/40 p-5">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="memory-badge badge-user">user</span>
+                  <span class="text-sm font-semibold text-zinc-200">Developer Profile</span>
+                </div>
+                <p class="text-xs text-zinc-400 mb-3 leading-relaxed">Your role, expertise, responsibilities, and communication preferences. Helps Claude tailor explanations and suggestions to your level.</p>
+                <div class="code-block" data-filename="~/.claude/projects/…/memory/user-context.md">
+                  <pre><code class="language-markdown">---
+name: Developer Profile
+description: Role, expertise, and communication preferences
+type: user
+---
+
+Engineer on the Payments team, primarily TypeScript and Go.
+Strong in backend systems — avoid over-explaining async/await or HTTP.
+New to the React side of this codebase; frame frontend in backend terms.
+Prefers seeing diffs before applying refactors.</code></pre>
+                </div>
+              </div>
+
+              <!-- feedback -->
+              <div class="rounded-lg border border-zinc-700 bg-zinc-800/40 p-5">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="memory-badge badge-feedback">feedback</span>
+                  <span class="text-sm font-semibold text-zinc-200">Corrections & Confirmed Approaches</span>
+                </div>
+                <p class="text-xs text-zinc-400 mb-3 leading-relaxed">What you've corrected ("don't do X") and what you've validated ("yes, exactly this"). Both directions matter — corrections prevent repeats; confirmations prevent drift.</p>
+                <div class="code-block" data-filename="~/.claude/projects/…/memory/style-feedback.md">
+                  <pre><code class="language-markdown">---
+name: Code Style Feedback
+description: Corrections and confirmed approaches from past sessions
+type: feedback
+---
+
+Do NOT use `var` — always corrected to `const`/`let`.
+**Why:** team ESLint rule; var leaks scope in async callbacks.
+
+Prefer `Result&lt;T, E&gt;` pattern over thrown exceptions.
+**Why:** Go-style error handling is team standard for Go services.
+
+When asked to "simplify," reduce nesting depth first, then line count.
+**Why:** confirmed approach — reduces cognitive load more than shorter code.</code></pre>
+                </div>
+              </div>
+
+              <!-- project -->
+              <div class="rounded-lg border border-zinc-700 bg-zinc-800/40 p-5">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="memory-badge badge-project">project</span>
+                  <span class="text-sm font-semibold text-zinc-200">Active Work & Decisions</span>
+                </div>
+                <p class="text-xs text-zinc-400 mb-3 leading-relaxed">Ongoing initiatives, key architectural decisions, constraints, and deadlines. Gives Claude context on what's in-flight without re-explaining every session.</p>
+                <div class="code-block" data-filename="~/.claude/projects/…/memory/q2-migration.md">
+                  <pre><code class="language-markdown">---
+name: Q2 Payments Migration
+description: Active work on Stripe v1→v2 migration, due 2026-05-01
+type: project
+---
+
+Migrating payment processor from Stripe v1 SDK to v2.
+Target: complete by 2026-05-01.
+
+Key decisions:
+- Use idempotency keys on all charge requests (new in v2)
+- Retry logic lives in src/payments/retry.ts
+- Do NOT touch src/payments/legacy/ — it's frozen until migration done
+
+Current status: webhook handling migrated; charge flow in progress.</code></pre>
+                </div>
+              </div>
+
+              <!-- reference -->
+              <div class="rounded-lg border border-zinc-700 bg-zinc-800/40 p-5">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="memory-badge badge-reference">reference</span>
+                  <span class="text-sm font-semibold text-zinc-200">External System Pointers</span>
+                </div>
+                <p class="text-xs text-zinc-400 mb-3 leading-relaxed">Where to find information in external systems — Linear boards, Grafana dashboards, runbooks, Slack channels. Claude can reference these when relevant.</p>
+                <div class="code-block" data-filename="~/.claude/projects/…/memory/team-systems.md">
+                  <pre><code class="language-markdown">---
+name: Team System References
+description: Pointers to external tools used by the Payments team
+type: reference
+---
+
+- Linear: https://linear.app/acme/team/payments (bug tracking)
+- Grafana: https://grafana.acme.internal/d/payments (oncall dashboard)
+- On-call: PagerDuty "Payments Primary" escalation policy
+- Runbooks: https://notion.acme.com/payments-runbooks
+- Staging: https://payments-staging.acme.internal</code></pre>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- STORAGE -->
+          <div data-tab-panel="storage" data-searchable data-section="auto-memory" data-tab-label="Storage & Index" data-section-title="Auto Memory" class="p-6">
+            <p class="prose-p">Auto memory lives in a local directory on your machine — it's not synced to git or shared with teammates.</p>
+
+            <p class="prose-h3">Storage location</p>
+            <div class="code-block" data-filename="Terminal">
+              <pre><code class="language-bash"># Default location (derived from git repo path)
+~/.claude/projects/&lt;project-hash&gt;/memory/
+
+# Custom location (set in user or local settings, not project settings)
+# autoMemoryDirectory: "/path/to/your/memory"
+
+# All git worktrees for a repo share one memory directory</code></pre>
+            </div>
+
+            <p class="prose-h3">MEMORY.md — the index file</p>
+            <p class="prose-p">Claude maintains a <code class="text-zinc-300 font-mono bg-zinc-700/50 px-1 rounded text-xs">MEMORY.md</code> index file. The <strong class="text-zinc-200">first 200 lines (or 25KB)</strong> load automatically at every session start. Topic files load on demand when Claude reads them.</p>
+
+            <div class="code-block" data-filename="~/.claude/projects/&lt;hash&gt;/memory/MEMORY.md">
+              <pre><code class="language-markdown"># Memory Index
+
+Automatically maintained by Claude Code.
+First 200 lines load at session start.
+
+## Active Memory Files
+
+- [user-context.md](user-context.md) — Developer profile and expertise
+- [style-feedback.md](style-feedback.md) — Code style corrections and confirmations
+- [q2-migration.md](q2-migration.md) — Q2 Stripe migration project context
+- [team-systems.md](team-systems.md) — External system pointers
+
+## Notes
+Last updated: 2026-04-18</code></pre>
+            </div>
+
+            <div class="callout callout-warning">
+              <span class="callout-icon">⚠</span>
+              <span>Content beyond the 200-line MEMORY.md threshold is not loaded at startup — it's loaded on demand. Keep your most critical pointers in the first 200 lines. Topic files themselves can be any length.</span>
+            </div>
+          </div>
+
+          <!-- /MEMORY COMMAND -->
+          <div data-tab-panel="memory-cmd" data-searchable data-section="auto-memory" data-tab-label="/memory Command" data-section-title="Auto Memory" class="p-6">
+            <p class="prose-p">The <code class="text-emerald-300 font-mono bg-emerald-500/10 px-1 rounded text-xs">/memory</code> command is your control panel for all memory — CLAUDE.md files and auto memory alike.</p>
+
+            <div class="grid grid-cols-1 gap-3 mb-5">
+              <div class="rounded-lg p-4 border border-zinc-700 bg-zinc-800/30">
+                <p class="text-sm font-semibold text-zinc-200 mb-1">What it shows</p>
+                <ul class="space-y-1">
+                  <li class="text-xs text-zinc-400 flex gap-2"><span class="text-emerald-400">›</span> All loaded CLAUDE.md, CLAUDE.local.md, and rules files</li>
+                  <li class="text-xs text-zinc-400 flex gap-2"><span class="text-emerald-400">›</span> Toggle to enable/disable auto memory</li>
+                  <li class="text-xs text-zinc-400 flex gap-2"><span class="text-emerald-400">›</span> Link to open the auto memory folder</li>
+                  <li class="text-xs text-zinc-400 flex gap-2"><span class="text-emerald-400">›</span> Select any file to open it in your editor</li>
+                </ul>
+              </div>
+            </div>
+
+            <p class="prose-h3">Common use cases</p>
+            <div class="space-y-3">
+              <div class="flex gap-3 items-start">
+                <span class="text-emerald-400 text-lg mt-0.5">1</span>
+                <div>
+                  <p class="text-sm font-medium text-zinc-200">Inspect what Claude has saved</p>
+                  <p class="text-xs text-zinc-500">Run <code class="font-mono">/memory</code>, click the memory folder link, browse the Markdown files.</p>
+                </div>
+              </div>
+              <div class="flex gap-3 items-start">
+                <span class="text-emerald-400 text-lg mt-0.5">2</span>
+                <div>
+                  <p class="text-sm font-medium text-zinc-200">Remove stale project context</p>
+                  <p class="text-xs text-zinc-500">Run <code class="font-mono">/memory</code> → open the project memory file → delete the outdated section. Memory files are plain Markdown.</p>
+                </div>
+              </div>
+              <div class="flex gap-3 items-start">
+                <span class="text-emerald-400 text-lg mt-0.5">3</span>
+                <div>
+                  <p class="text-sm font-medium text-zinc-200">Seed context before Claude discovers it</p>
+                  <p class="text-xs text-zinc-500">On a new project, tell Claude your role and preferences explicitly: <em>"Please save to memory that I'm a backend engineer new to this React codebase."</em></p>
+                </div>
+              </div>
+              <div class="flex gap-3 items-start">
+                <span class="text-emerald-400 text-lg mt-0.5">4</span>
+                <div>
+                  <p class="text-sm font-medium text-zinc-200">Save something immediately</p>
+                  <p class="text-xs text-zinc-500">Ask directly: <em>"Remember that we use msw for API mocking in all tests — don't suggest Nock."</em> Claude saves it right away.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- VERSION INFO -->
+          <div data-tab-panel="version-req" data-searchable data-section="auto-memory" data-tab-label="Version Info" data-section-title="Auto Memory" class="p-6">
+            <p class="prose-p">Auto memory requires Claude Code <strong class="text-zinc-200">v2.1.59 or later</strong>. It's enabled by default.</p>
+
+            <div class="code-block" data-filename="Terminal — check your version">
+              <pre><code class="language-bash">claude --version</code></pre>
+            </div>
+
+            <div class="code-block" data-filename="Terminal — update Claude Code">
+              <pre><code class="language-bash">npm install -g @anthropic-ai/claude-code</code></pre>
+            </div>
+
+            <div class="callout callout-warning">
+              <span class="callout-icon">⚠</span>
+              <span>If <code class="font-mono text-xs">/memory</code> is not recognized as a command, you are running an older version. Update with the command above.</span>
+            </div>
+
+            <p class="prose-h3">Managing the feature</p>
+            <div class="code-block" data-filename="Terminal — disable auto memory">
+              <pre><code class="language-bash"># Disable via environment variable
+export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
+
+# Or toggle interactively with /memory inside Claude Code</code></pre>
+            </div>
+            <div class="code-block" data-filename=".claude/settings.json — disable in settings">
+              <pre><code class="language-yaml">{
+  "autoMemoryEnabled": false
+}</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── SECTION: BEST PRACTICES ─── -->
+    <section id="best-practices" class="mb-8">
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div class="px-6 pt-6 pb-0 border-l-4 border-blue-500">
+          <h2 class="section-header">Best Practices</h2>
+          <p class="section-desc">Patterns that make the difference between Claude that reliably follows your rules and Claude that doesn't.</p>
+        </div>
+
+        <div data-tab-group="best-practices">
+          <div class="flex border-b border-zinc-800 px-6 overflow-x-auto" style="gap: 0;">
+            <button class="tab-btn tab-active" data-tab-trigger="hygiene">File Hygiene</button>
+            <button class="tab-btn" data-tab-trigger="writing-quality">Writing Quality</button>
+            <button class="tab-btn" data-tab-trigger="modular-rules">Modular Rules</button>
+            <button class="tab-btn" data-tab-trigger="sharing-rules">Sharing Rules</button>
+          </div>
+
+          <!-- HYGIENE -->
+          <div data-tab-panel="hygiene" data-searchable data-section="best-practices" data-tab-label="File Hygiene" data-section-title="Best Practices" class="p-6">
+            <p class="prose-p">The single most important hygiene rule: keep CLAUDE.md under 200 lines. Beyond that, instructions can be silently truncated.</p>
+
+            <div class="code-block" data-filename="Terminal — check your CLAUDE.md size">
+              <pre><code class="language-bash"># Check line count
+wc -l CLAUDE.md
+
+# Check size
+du -h CLAUDE.md
+
+# If over 150 lines, start splitting into .claude/rules/ files</code></pre>
+            </div>
+
+            <p class="prose-h3">Regular maintenance checklist</p>
+            <ul class="checklist">
+              <li>Line count stays under 200 (ideally under 150)</li>
+              <li>No conflicting rules between CLAUDE.md and imported files</li>
+              <li>Outdated instructions removed (e.g., old test runner, deprecated patterns)</li>
+              <li>CLAUDE.local.md is in .gitignore</li>
+              <li>Run <code class="font-mono text-xs">/memory</code> to verify all files are loading</li>
+            </ul>
+
+            <div class="callout callout-warning">
+              <span class="callout-icon">⚠</span>
+              <span>There's no error when CLAUDE.md is too large. Claude doesn't say "I truncated your file." The instructions just silently disappear from context. Monitor your line count.</span>
+            </div>
+          </div>
+
+          <!-- WRITING QUALITY -->
+          <div data-tab-panel="writing-quality" data-searchable data-section="best-practices" data-tab-label="Writing Quality" data-section-title="Best Practices" class="p-6">
+            <p class="prose-p">Instruction quality determines consistency. Vague rules get vague results.</p>
+
+            <div class="overflow-x-auto mb-4">
+              <table class="doc-table">
+                <thead>
+                  <tr><th>❌ Vague</th><th>→</th><th>✓ Better</th><th>✓✓ Best (verifiable)</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="text-red-300">Write clean code</td>
+                    <td class="text-zinc-600">→</td>
+                    <td class="text-yellow-300">Use consistent naming</td>
+                    <td class="text-emerald-300">camelCase for variables, PascalCase for classes, SCREAMING_SNAKE for constants</td>
+                  </tr>
+                  <tr>
+                    <td class="text-red-300">Handle errors properly</td>
+                    <td class="text-zinc-600">→</td>
+                    <td class="text-yellow-300">Don't swallow errors</td>
+                    <td class="text-emerald-300">All caught errors must be logged with logger.error() before re-throwing or returning</td>
+                  </tr>
+                  <tr>
+                    <td class="text-red-300">Write good tests</td>
+                    <td class="text-zinc-600">→</td>
+                    <td class="text-yellow-300">Tests should be readable</td>
+                    <td class="text-emerald-300">Each test: one assertion per it(), descriptive test name answering "when X, should Y"</td>
+                  </tr>
+                  <tr>
+                    <td class="text-red-300">Keep functions small</td>
+                    <td class="text-zinc-600">→</td>
+                    <td class="text-yellow-300">Avoid long functions</td>
+                    <td class="text-emerald-300">Functions over 40 lines must be refactored — split by responsibility, not by length</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="callout callout-good">
+              <span class="callout-icon">✓</span>
+              <span>The gold standard: if a linter, grep, or code review could verify the rule, Claude can apply it consistently. If it requires judgment, it'll be applied inconsistently.</span>
+            </div>
+          </div>
+
+          <!-- MODULAR RULES -->
+          <div data-tab-panel="modular-rules" data-searchable data-section="best-practices" data-tab-label="Modular Rules" data-section-title="Best Practices" class="p-6">
+            <p class="prose-p">As projects grow, a single CLAUDE.md becomes unwieldy. The <code class="text-violet-300 font-mono bg-violet-500/10 px-1 rounded text-xs">.claude/rules/</code> pattern keeps rules modular and focused — one topic per file.</p>
+
+            <div class="code-block" data-filename="Terminal — recommended project structure">
+              <pre><code class="language-bash">.claude/
+├── rules/
+│   ├── typescript.md           # TypeScript-specific rules (always loads)
+│   ├── testing.md              # Test patterns (paths: **/*.test.ts)
+│   ├── api-handlers.md         # API rules (paths: src/api/**)
+│   ├── security.md             # Auth rules (paths: src/auth/**)
+│   ├── react-components.md     # UI rules (paths: src/components/**)
+│   └── database.md             # DB rules (paths: src/db/**)
+├── CLAUDE.md                   # Root rules + @imports (keep &lt; 50 lines)
+└── CLAUDE.local.md             # Personal prefs (gitignored)</code></pre>
+            </div>
+
+            <p class="prose-h3">A lean root CLAUDE.md using imports</p>
+            <div class="code-block" data-filename="CLAUDE.md — lean version with imports">
+              <pre><code class="language-markdown"># Project: Acme Payments Service
+
+## Commands
+- Build: `npm run build`
+- Test: `npm test` (hits real test DB — requires local postgres)
+- Lint: `npm run lint`
+
+## Architecture
+Node.js/TypeScript monorepo. Entry: src/index.ts.
+See @docs/architecture.md for the full overview.
+
+## Rules
+@.claude/rules/typescript.md
+@.claude/rules/testing.md
+@.claude/rules/api-handlers.md</code></pre>
+            </div>
+
+            <div class="callout callout-good">
+              <span class="callout-icon">✓</span>
+              <span>With path-scoped rules, Claude only loads API rules when editing API files, and test rules when editing test files. Context stays focused, and you can add detailed rules without hitting the 200-line limit.</span>
+            </div>
+          </div>
+
+          <!-- SHARING RULES -->
+          <div data-tab-panel="sharing-rules" data-searchable data-section="best-practices" data-tab-label="Sharing Rules" data-section-title="Best Practices" class="p-6">
+            <p class="prose-p">When you want the same rules to apply across multiple repositories, use symlinks to maintain a single source of truth.</p>
+
+            <p class="prose-h3">Symlink a shared rules directory</p>
+            <div class="code-block" data-filename="Terminal — symlink shared rules">
+              <pre><code class="language-bash"># In your dotfiles repo, create a shared rules directory
+mkdir -p ~/dotfiles/claude-rules
+
+# Add shared rules files
+echo "Always use named exports" > ~/dotfiles/claude-rules/exports.md
+
+# In each project, symlink the shared directory
+cd /path/to/project
+ln -s ~/dotfiles/claude-rules .claude/rules/shared
+
+# Or symlink individual files
+ln -s ~/dotfiles/claude-rules/typescript.md .claude/rules/team-typescript.md</code></pre>
+            </div>
+
+            <p class="prose-h3">User-level rules (apply to every project)</p>
+            <div class="code-block" data-filename="Terminal — user-level rules">
+              <pre><code class="language-bash"># Rules in ~/.claude/rules/ apply to ALL your projects
+mkdir -p ~/.claude/rules
+
+# Example: personal style rule that applies everywhere
+cat > ~/.claude/rules/my-style.md &lt;&lt; 'EOF'
+# My Personal Rules
+- Show diffs before applying any refactor
+- Explain the "why" before the "what" in code reviews
+EOF</code></pre>
+            </div>
+
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ</span>
+              <span>Symlinks work for both files and directories. The <code class="font-mono text-xs">.claude/rules/</code> directory supports any depth of organization — you can use subdirectories like <code class="font-mono text-xs">.claude/rules/frontend/</code> and <code class="font-mono text-xs">.claude/rules/backend/</code>.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── SECTION: TROUBLESHOOTING ─── -->
+    <section id="troubleshooting" class="mb-8">
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div class="px-6 pt-6 pb-0 border-l-4 border-amber-500">
+          <h2 class="section-header">Troubleshooting</h2>
+          <p class="section-desc">Diagnosing and fixing the most common memory system issues.</p>
+        </div>
+
+        <div data-tab-group="troubleshooting">
+          <div class="flex border-b border-zinc-800 px-6 overflow-x-auto" style="gap: 0;">
+            <button class="tab-btn tab-active" data-tab-trigger="not-followed">Not Followed</button>
+            <button class="tab-btn" data-tab-trigger="after-compact">After /compact</button>
+            <button class="tab-btn" data-tab-trigger="too-large">File Too Large</button>
+            <button class="tab-btn" data-tab-trigger="inspect-memory">Inspect Memory</button>
+          </div>
+
+          <!-- NOT FOLLOWED -->
+          <div data-tab-panel="not-followed" data-searchable data-section="troubleshooting" data-tab-label="Not Followed" data-section-title="Troubleshooting" class="p-6">
+            <p class="prose-p">Claude ignoring your CLAUDE.md is the most common issue. Work through this checklist in order.</p>
+
+            <p class="prose-h3">Diagnosis checklist</p>
+            <ul class="checklist mb-5">
+              <li>Run <code class="font-mono text-xs">/memory</code> inside Claude Code — verify your file appears in the loaded files list</li>
+              <li>Check the file is at project root (not nested two levels deep in a subdirectory)</li>
+              <li>Verify line count: <code class="font-mono text-xs">wc -l CLAUDE.md</code> — must be under 200</li>
+              <li>Look for conflicting instructions across multiple CLAUDE.md files at different levels</li>
+              <li>Check YAML frontmatter syntax in path-scoped rule files (malformed YAML silently skips the file)</li>
+              <li>For path-scoped rules: confirm you're editing a file that matches the <code class="font-mono text-xs">paths:</code> pattern</li>
+            </ul>
+
+            <div class="code-block" data-filename="Terminal — verify YAML frontmatter is valid">
+              <pre><code class="language-bash"># Quick YAML syntax check (requires python)
+python3 -c "import yaml; yaml.safe_load(open('.claude/rules/api-handlers.md').read())"
+
+# If no output, YAML is valid. If error, fix the frontmatter.</code></pre>
+            </div>
+
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ</span>
+              <span>Use <code class="font-mono text-xs">--append-system-prompt</code> to inject instructions at the system prompt level, which takes the highest priority. Useful for debugging whether the issue is loading vs. priority.</span>
+            </div>
+          </div>
+
+          <!-- AFTER COMPACT -->
+          <div data-tab-panel="after-compact" data-searchable data-section="troubleshooting" data-tab-label="After /compact" data-section-title="Troubleshooting" class="p-6">
+            <p class="prose-p">Running <code class="text-amber-300 font-mono bg-amber-500/10 px-1 rounded text-xs">/compact</code> summarizes the conversation to free up context window space. It behaves differently for different CLAUDE.md file types.</p>
+
+            <div class="overflow-x-auto mb-4">
+              <table class="doc-table">
+                <thead>
+                  <tr><th>File</th><th>Survives /compact?</th><th>Why</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code class="text-xs font-mono text-zinc-300">./CLAUDE.md</code> (project root)</td>
+                    <td class="text-emerald-400 font-semibold">✓ Yes</td>
+                    <td class="text-zinc-400 text-xs">Always reloaded at the start of a compacted session</td>
+                  </tr>
+                  <tr>
+                    <td><code class="text-xs font-mono text-zinc-300">./src/CLAUDE.md</code> (subdirectory)</td>
+                    <td class="text-amber-400 font-semibold">~ On demand</td>
+                    <td class="text-zinc-400 text-xs">Reloads when Claude reads a file in that directory</td>
+                  </tr>
+                  <tr>
+                    <td><code class="text-xs font-mono text-zinc-300">~/.claude/CLAUDE.md</code> (user)</td>
+                    <td class="text-emerald-400 font-semibold">✓ Yes</td>
+                    <td class="text-zinc-400 text-xs">Loaded at every session start, including post-compact</td>
+                  </tr>
+                  <tr>
+                    <td>Auto memory (MEMORY.md)</td>
+                    <td class="text-emerald-400 font-semibold">✓ Yes</td>
+                    <td class="text-zinc-400 text-xs">Stored on disk, not in context — reloads fresh</td>
+                  </tr>
+                  <tr>
+                    <td>Conversation context</td>
+                    <td class="text-red-400 font-semibold">✗ Summarized</td>
+                    <td class="text-zinc-400 text-xs">This is what /compact compresses — not CLAUDE.md files</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="callout callout-good">
+              <span class="callout-icon">✓</span>
+              <span><strong>Fix:</strong> If you're losing instructions after <code class="font-mono text-xs">/compact</code>, move them from conversation context into your project-root CLAUDE.md. That file always reloads.</span>
+            </div>
+          </div>
+
+          <!-- TOO LARGE -->
+          <div data-tab-panel="too-large" data-searchable data-section="troubleshooting" data-tab-label="File Too Large" data-section-title="Troubleshooting" class="p-6">
+            <p class="prose-p">A CLAUDE.md over 200 lines risks silent truncation. The fix is to split it using <code class="text-violet-300 font-mono bg-violet-500/10 px-1 rounded text-xs">@imports</code>.</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <div class="text-xs font-semibold text-red-400 mb-2">Before — 400-line monolith</div>
+                <div class="code-block" data-filename="CLAUDE.md — before (400 lines)">
+                  <pre><code class="language-markdown"># Project Rules
+[50 lines of build/test commands]
+[80 lines of TypeScript conventions]
+[70 lines of test patterns]
+[60 lines of API rules]
+[50 lines of React rules]
+[90 lines of database patterns]
+# Total: ~400 lines — TRUNCATED</code></pre>
+                </div>
+              </div>
+              <div>
+                <div class="text-xs font-semibold text-emerald-400 mb-2">After — lean root with imports</div>
+                <div class="code-block" data-filename="CLAUDE.md — after (30 lines)">
+                  <pre><code class="language-markdown"># Project Rules
+
+## Commands
+- Build: `npm run build`
+- Test: `npm test`
+
+## Architecture
+Monorepo. See @README.md.
+
+## Rules
+@.claude/rules/typescript.md
+@.claude/rules/testing.md
+@.claude/rules/api.md
+@.claude/rules/react.md
+@.claude/rules/database.md
+# Total: ~30 lines ✓</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="callout callout-good">
+              <span class="callout-icon">✓</span>
+              <span>Each imported rules file can be as long as needed — the 200-line limit applies to what loads at startup. Path-scoped rules (<code class="font-mono text-xs">paths:</code> frontmatter) only load when relevant, so they don't count against your startup budget.</span>
+            </div>
+          </div>
+
+          <!-- INSPECT MEMORY -->
+          <div data-tab-panel="inspect-memory" data-searchable data-section="troubleshooting" data-tab-label="Inspect Memory" data-section-title="Troubleshooting" class="p-6">
+            <p class="prose-p">Auto memory is just Markdown files. You can read, edit, or delete them directly.</p>
+
+            <p class="prose-h3">Via /memory command (preferred)</p>
+            <p class="prose-p text-zinc-400 text-xs">Run <code class="font-mono">/memory</code> inside Claude Code, then click the link to open the memory folder in your file manager or editor.</p>
+
+            <p class="prose-h3">Via terminal</p>
+            <div class="code-block" data-filename="Terminal — browse auto memory">
+              <pre><code class="language-bash"># Find your project's memory directory
+# (the hash is derived from the absolute git repo path)
+ls ~/.claude/projects/
+
+# List memory files for a project
+ls ~/.claude/projects/&lt;hash&gt;/memory/
+
+# View the index
+cat ~/.claude/projects/&lt;hash&gt;/memory/MEMORY.md
+
+# Edit a specific memory file
+nano ~/.claude/projects/&lt;hash&gt;/memory/style-feedback.md
+
+# Delete a stale memory file
+rm ~/.claude/projects/&lt;hash&gt;/memory/old-project.md</code></pre>
+            </div>
+
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ</span>
+              <span>Memory files are plain Markdown with YAML frontmatter — no special format required. Edit them like any Markdown file. Changes take effect at the next session start (or when Claude re-reads them on demand).</span>
+            </div>
+
+            <p class="prose-h3">Disable auto memory entirely</p>
+            <div class="code-block" data-filename="Terminal — disable auto memory">
+              <pre><code class="language-bash"># Per-session (environment variable)
+CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 claude
+
+# Permanently (add to ~/.zshrc or ~/.bashrc)
+export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
+
+# Or toggle with /memory inside Claude Code</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── SECTION: INSPECTOR ─── -->
+    <section id="inspector" class="mb-8">
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div class="px-6 pt-6 pb-5 border-l-4 border-pink-500">
+          <h2 class="section-header">CLAUDE.md Inspector</h2>
+          <p class="section-desc">Paste your CLAUDE.md content and get instant feedback on quality, structure, and common issues. <strong class="text-zinc-400">Analyzes a single file in isolation</strong> — if your project splits config across <code class="text-violet-400 text-xs">.claude/rules/</code>, skills, and hooks, use the <a href="#full-audit" class="text-violet-400 hover:text-violet-300 underline underline-offset-2">Full Project Audit prompt</a> instead.</p>
+        </div>
+        <div class="px-6 pb-6">
+          <textarea id="inspector-input"
+            placeholder="Paste your CLAUDE.md content here… (Cmd+Enter to analyze)"
+            class="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-4 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors resize-y"
+            style="font-size: 0.8rem; font-family: ui-monospace, monospace; line-height: 1.65; min-height: 180px; height: 220px;"></textarea>
+          <div class="flex items-center gap-3 mt-3">
+            <button id="inspector-btn"
+              class="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold rounded-lg transition-colors">
+              Analyze
+            </button>
+            <button id="inspector-clear"
+              class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-sm rounded-lg transition-colors border border-zinc-700">
+              Clear
+            </button>
+            <span id="inspector-char-count" class="text-xs text-zinc-600 ml-auto font-mono"></span>
+          </div>
+
+          <!-- Empty state -->
+          <div id="inspector-empty" class="text-center py-10 text-zinc-600 text-sm">
+            Paste your CLAUDE.md above and click Analyze
+          </div>
+
+          <!-- Results -->
+          <div id="inspector-results" class="hidden mt-6 space-y-4">
+            <div id="inspector-stats" class="flex flex-wrap gap-2"></div>
+            <div id="inspector-score" class="rounded-lg p-4 border flex items-center gap-4"></div>
+            <div id="inspector-issues" class="space-y-3"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── FULL PROJECT AUDIT ─── -->
+    <section id="full-audit" class="mb-8">
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div class="px-6 pt-6 pb-5 border-l-4 border-emerald-500">
+          <h2 class="section-header">Full Project Audit</h2>
+          <p class="section-desc">The inspector above only sees one file. A real project splits configuration across <code class="text-violet-400 text-xs">.claude/rules/</code>, <code class="text-violet-400 text-xs">.claude/skills/</code>, hooks, and sub-directory CLAUDE.md files. Copy the prompt below and run it directly in Claude Code inside your project — Claude can actually read the full <code class="text-violet-400 text-xs">.claude/</code> directory and give accurate, project-specific feedback.</p>
+        </div>
+        <div class="px-6 pb-6 space-y-6">
+
+          <!-- How to run -->
+          <div class="rounded-lg bg-zinc-800/60 border border-zinc-700 p-4 text-sm text-zinc-400 flex gap-3">
+            <span class="text-emerald-400 mt-0.5 shrink-0">▶</span>
+            <span>Open your project in Claude Code, paste the prompt below into the chat, and press Enter. Claude will read every file in <code class="text-violet-400 text-xs">.claude/</code> before responding — no manual copy-pasting required.</span>
+          </div>
+
+          <!-- Prompt block -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Audit prompt — paste into Claude Code</span>
+              <button class="audit-copy-btn px-3 py-1 text-xs rounded-md bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border border-zinc-600 transition-colors font-medium">Copy</button>
+            </div>
+            <pre class="audit-prompt-pre rounded-lg bg-zinc-950 border border-zinc-700 p-4 text-xs text-zinc-300 overflow-x-auto leading-relaxed whitespace-pre-wrap">Read everything in .claude/:
+- CLAUDE.md (project root)
+- All files in .claude/rules/
+- All SKILL.md files in .claude/skills/
+- .claude/settings.json (hooks)
+- Any sub-directory CLAUDE.md files
+
+Then audit the complete Claude Code configuration and report findings in three groups:
+
+## ✓ Well-configured
+List what's already solid and why.
+
+## ⚠ Missing or needs improvement
+For each gap, include:
+- What's missing
+- Why it matters
+- A ready-to-paste fix (exact content to add, with file path)
+
+Audit these areas:
+
+**Structure**
+- Is CLAUDE.md under 200 lines? Is it lean (overview + @imports only)?
+- Are rules split into .claude/rules/ with @imports?
+- Are path-scoped rules used where appropriate (YAML `paths:` frontmatter)?
+- Are complex multi-step workflows in .claude/skills/ rather than CLAUDE.md?
+
+**Content**
+- Are build, test, and lint commands documented somewhere in the config?
+- Is there a project overview explaining what the product does and who uses it?
+- Is there a "Common Gotchas" section for project-specific traps?
+- Are there instructions for proactive test maintenance?
+- Are instructions specific and verifiable (not vague like "write clean code")?
+- Are there any conflicting instructions ("always X" vs "never X")?
+
+**Automation**
+- Does settings.json have PostToolUse hooks for typecheck/lint after file edits?
+- Are there any missing hooks for common failure modes in this project?
+
+**Memory alignment**
+- Run /memory and check if any auto-memory corrections duplicate CLAUDE.md rules.
+- Flag any that should be consolidated into a canonical .claude/rules/style.md.</pre>
+          </div>
+
+          <!-- When to use each tool -->
+          <div class="rounded-lg bg-zinc-800/40 border border-zinc-700 p-4">
+            <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">When to use which tool</p>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
+              <div class="rounded-lg bg-zinc-900 border border-zinc-700 p-3">
+                <p class="font-semibold text-pink-400 mb-1">CLAUDE.md Inspector <span class="text-zinc-600 font-normal">(above)</span></p>
+                <p class="text-zinc-400 text-xs leading-relaxed">Best for a standalone or global <code class="text-violet-400">~/.claude/CLAUDE.md</code> that lives in one file. Instant, no Claude Code needed.</p>
+              </div>
+              <div class="rounded-lg bg-zinc-900 border border-zinc-700 p-3">
+                <p class="font-semibold text-emerald-400 mb-1">Full Project Audit <span class="text-zinc-600 font-normal">(this prompt)</span></p>
+                <p class="text-zinc-400 text-xs leading-relaxed">Best for projects using <code class="text-violet-400">.claude/rules/</code>, skills, and hooks. Requires Claude Code running inside the repo.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── FOOTER ─── -->
+    <footer class="mt-8 pt-8 border-t border-zinc-800 text-center pb-8">
+      <p class="text-zinc-500 text-sm">Claude Code Memory System Guide — Internal Engineering Reference</p>
+      <p class="text-zinc-600 text-xs mt-1">
+        Auto Memory requires Claude Code
+        <code class="font-mono text-zinc-500">v2.1.59+</code> —
+        check with <code class="font-mono text-zinc-500">claude --version</code> ·
+        update with <code class="font-mono text-zinc-500">npm install -g @anthropic-ai/claude-code</code>
+      </p>
+    </footer>
+
+  </main>
+</div>
+
+<!-- ═══════════════════ JAVASCRIPT ═══════════════════ -->
+<script>
+  // ─── 1. TABS ───
+  // Tracks which tab is active per group so scrollspy respects manual tab selections.
+  const activeTabMap = {}; // { groupId: tabTarget | null (= first/Overview tab) }
+
+  function setSidebarActive(link) {
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+    if (link) link.classList.add('active');
+  }
+
+  function syncSidebarToTab(groupId, tabTarget) {
+    // Find the sidebar link matching group + tab
+    const match = document.querySelector(`[data-tab-group-target="${groupId}"][data-tab-target="${tabTarget}"]`);
+    if (match) {
+      setSidebarActive(match);
+      activeTabMap[groupId] = tabTarget;
+    } else {
+      // First/Overview tab — activate the non-tab section link
+      const sectionLink = document.querySelector(`[data-sidebar-link="${groupId}"]:not([data-tab-target])`);
+      setSidebarActive(sectionLink);
+      activeTabMap[groupId] = null;
+    }
+  }
+
+  function initTabs() {
+    document.querySelectorAll('[data-tab-group]').forEach(group => {
+      const triggers = group.querySelectorAll('[data-tab-trigger]');
+      const panels = group.querySelectorAll('[data-tab-panel]');
+      const groupId = group.dataset.tabGroup;
+
+      // Hide all panels except first; activate first trigger
+      panels.forEach((panel, i) => { if (i > 0) panel.classList.add('hidden'); });
+      if (triggers.length) triggers[0].classList.add('tab-active');
+
+      triggers.forEach(trigger => {
+        trigger.addEventListener('click', () => {
+          const target = trigger.dataset.tabTrigger;
+          triggers.forEach(t => t.classList.remove('tab-active'));
+          panels.forEach(p => p.classList.add('hidden'));
+          trigger.classList.add('tab-active');
+          const panel = group.querySelector(`[data-tab-panel="${target}"]`);
+          if (panel) panel.classList.remove('hidden');
+          // Sync sidebar to the clicked tab
+          syncSidebarToTab(groupId, target);
+        });
+      });
+    });
+
+    // Sidebar deep links — tab items
+    document.querySelectorAll('[data-tab-target]').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        const sectionId = link.getAttribute('href').replace('#', '');
+        const tabTarget = link.dataset.tabTarget;
+        const tabGroupId = link.dataset.tabGroupTarget;
+        if (tabGroupId) activateTab(tabGroupId, tabTarget);
+        setSidebarActive(link);
+        activeTabMap[tabGroupId] = tabTarget;
+        const section = document.getElementById(sectionId);
+        if (section) setTimeout(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }), 10);
+      });
+    });
+
+    // Sidebar section links (Overview / "What Is It" — no data-tab-target)
+    // These reset the tab group back to its first tab and clear activeTabMap.
+    document.querySelectorAll('.sidebar-link:not([data-tab-target])').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        const sectionId = link.getAttribute('href')?.replace('#', '');
+        if (!sectionId) return;
+        // Reset the tab group for this section to its first tab
+        const group = document.querySelector(`[data-tab-group="${sectionId}"]`);
+        if (group) {
+          const triggers = group.querySelectorAll('[data-tab-trigger]');
+          const panels = group.querySelectorAll('[data-tab-panel]');
+          triggers.forEach(t => t.classList.remove('tab-active'));
+          panels.forEach(p => p.classList.add('hidden'));
+          if (triggers[0]) triggers[0].classList.add('tab-active');
+          if (panels[0]) panels[0].classList.remove('hidden');
+          activeTabMap[sectionId] = null;
+        }
+        setSidebarActive(link);
+        const section = document.getElementById(sectionId);
+        if (section) setTimeout(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }), 10);
+      });
+    });
+  }
+
+  function activateTab(groupId, tabTarget) {
+    const group = document.querySelector(`[data-tab-group="${groupId}"]`);
+    if (!group) return;
+    const triggers = group.querySelectorAll('[data-tab-trigger]');
+    const panels = group.querySelectorAll('[data-tab-panel]');
+    triggers.forEach(t => t.classList.remove('tab-active'));
+    panels.forEach(p => p.classList.add('hidden'));
+    const trigger = group.querySelector(`[data-tab-trigger="${tabTarget}"]`);
+    const panel = group.querySelector(`[data-tab-panel="${tabTarget}"]`);
+    if (trigger) trigger.classList.add('tab-active');
+    if (panel) panel.classList.remove('hidden');
+  }
+
+  // ─── 2. COPY BUTTONS ───
+  function initCopyButtons() {
+    const clipboardSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    const checkSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+    document.querySelectorAll('.code-block').forEach(block => {
+      const filename = block.dataset.filename || '';
+      const pre = block.querySelector('pre');
+      if (!pre) return;
+
+      // Create header if it doesn't exist
+      if (!block.querySelector('.code-header')) {
+        const header = document.createElement('div');
+        header.className = 'code-header';
+        const filenameEl = document.createElement('span');
+        filenameEl.className = 'code-filename';
+        filenameEl.textContent = filename;
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-btn';
+        copyBtn.setAttribute('aria-label', 'Copy code');
+        copyBtn.innerHTML = clipboardSVG + '<span>Copy</span>';
+        header.appendChild(filenameEl);
+        header.appendChild(copyBtn);
+        block.insertBefore(header, block.firstChild);
+
+        copyBtn.addEventListener('click', () => {
+          // Get text from all code elements in the block
+          const codeEls = block.querySelectorAll('code');
+          const text = Array.from(codeEls).map(el => el.innerText).join('\n');
+          navigator.clipboard.writeText(text).then(() => {
+            copyBtn.classList.add('copied');
+            copyBtn.innerHTML = checkSVG + '<span>Copied!</span>';
+            setTimeout(() => {
+              copyBtn.classList.remove('copied');
+              copyBtn.innerHTML = clipboardSVG + '<span>Copy</span>';
+            }, 1800);
+          }).catch(() => {
+            // Fallback for non-HTTPS
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            copyBtn.classList.add('copied');
+            copyBtn.innerHTML = checkSVG + '<span>Copied!</span>';
+            setTimeout(() => {
+              copyBtn.classList.remove('copied');
+              copyBtn.innerHTML = clipboardSVG + '<span>Copy</span>';
+            }, 1800);
+          });
+        });
+      }
+    });
+  }
+
+  // ─── 3. SEARCH ───
+  function initSearch() {
+    const input = document.getElementById('search-input');
+    const dropdown = document.getElementById('search-dropdown');
+    const resultsEl = document.getElementById('search-results');
+    let debounceTimer;
+    let focusedIndex = -1;
+    let results = [];
+
+    // Build search index
+    const index = [];
+    document.querySelectorAll('[data-searchable]').forEach(panel => {
+      const sectionTitle = panel.dataset.sectionTitle || '';
+      const tabLabel = panel.dataset.tabLabel || '';
+      const section = panel.dataset.section || '';
+      const tabPanel = panel.getAttribute('data-tab-panel') || '';
+      const tabGroup = panel.closest('[data-tab-group]')?.getAttribute('data-tab-group') || '';
+      const text = panel.innerText || '';
+      index.push({ sectionTitle, tabLabel, section, tabPanel, tabGroup, text, element: panel });
+    });
+
+    function getSnippet(text, query) {
+      const lower = text.toLowerCase();
+      const idx = lower.indexOf(query.toLowerCase());
+      if (idx === -1) return text.slice(0, 80) + '…';
+      const start = Math.max(0, idx - 30);
+      const end = Math.min(text.length, idx + query.length + 50);
+      const snippet = (start > 0 ? '…' : '') + text.slice(start, end) + (end < text.length ? '…' : '');
+      return snippet.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+    }
+
+    function highlight(text, query) {
+      if (!query) return escapeHtml(text);
+      const escaped = escapeHtml(text);
+      const re = new RegExp('(' + escapeRegex(query) + ')', 'gi');
+      return escaped.replace(re, '<mark class="sh">$1</mark>');
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function escapeRegex(s) {
+      return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function renderResults(query) {
+      if (!query || query.length < 2) {
+        dropdown.classList.add('hidden');
+        return;
+      }
+      const q = query.toLowerCase();
+      results = index.filter(item => item.text.toLowerCase().includes(q));
+      if (results.length === 0) {
+        resultsEl.innerHTML = '<div class="px-4 py-3 text-zinc-500 text-sm">No results found</div>';
+        dropdown.classList.remove('hidden');
+        focusedIndex = -1;
+        return;
+      }
+      focusedIndex = -1;
+      resultsEl.innerHTML = results.slice(0, 8).map((item, i) => {
+        const snippet = getSnippet(item.text, query);
+        return `<div class="search-result-item" data-index="${i}">
+          <div class="text-xs text-zinc-500 mb-0.5">${escapeHtml(item.sectionTitle)} › ${escapeHtml(item.tabLabel)}</div>
+          <div class="text-sm text-zinc-200 leading-relaxed">${highlight(snippet, query)}</div>
+        </div>`;
+      }).join('');
+      dropdown.classList.remove('hidden');
+
+      resultsEl.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const idx = parseInt(item.dataset.index);
+          navigateToResult(results[idx]);
+          dropdown.classList.add('hidden');
+          input.value = '';
+        });
+      });
+    }
+
+    function navigateToResult(result) {
+      // Activate the correct tab
+      if (result.tabGroup && result.tabPanel) {
+        activateTab(result.tabGroup, result.tabPanel);
+      }
+      // Scroll to section after tab is shown
+      setTimeout(() => {
+        const section = document.getElementById(result.section);
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 0);
+    }
+
+    input.addEventListener('input', e => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => renderResults(e.target.value.trim()), 150);
+    });
+
+    input.addEventListener('keydown', e => {
+      const items = resultsEl.querySelectorAll('.search-result-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        focusedIndex = Math.min(focusedIndex + 1, items.length - 1);
+        items.forEach((item, i) => item.classList.toggle('focused', i === focusedIndex));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        focusedIndex = Math.max(focusedIndex - 1, 0);
+        items.forEach((item, i) => item.classList.toggle('focused', i === focusedIndex));
+      } else if (e.key === 'Enter' && focusedIndex >= 0) {
+        e.preventDefault();
+        if (results[focusedIndex]) {
+          navigateToResult(results[focusedIndex]);
+          dropdown.classList.add('hidden');
+          input.value = '';
+        }
+      } else if (e.key === 'Escape') {
+        dropdown.classList.add('hidden');
+        input.blur();
+      }
+    });
+
+    document.addEventListener('click', e => {
+      if (!document.getElementById('search-container').contains(e.target)) {
+        dropdown.classList.add('hidden');
+      }
+    });
+  }
+
+  // ─── 4. SCROLLSPY ───
+  function initScrollspy() {
+    const sections = document.querySelectorAll('section[id]');
+    const links = document.querySelectorAll('[data-sidebar-link]');
+
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach(link => {
+            const matches = link.dataset.sidebarLink === id;
+            if (!matches) { link.classList.remove('active'); return; }
+
+            if (link.dataset.tabTarget) {
+              // Tab link: activate only if it matches the currently tracked tab for this group
+              const trackedTab = activeTabMap[link.dataset.tabGroupTarget];
+              link.classList.toggle('active', link.dataset.tabTarget === trackedTab);
+            } else {
+              // Non-tab section link: activate only if no tab is tracked (i.e. first/Overview tab is shown)
+              const trackedTab = activeTabMap[id];
+              link.classList.toggle('active', !trackedTab);
+            }
+          });
+        }
+      });
+    }, { threshold: 0.15, rootMargin: '-60px 0px -60% 0px' });
+
+    sections.forEach(section => observer.observe(section));
+  }
+
+  // ─── 5. INSPECTOR ───
+  function initInspector() {
+    const input    = document.getElementById('inspector-input');
+    const btn      = document.getElementById('inspector-btn');
+    const clearBtn = document.getElementById('inspector-clear');
+    const resultsEl= document.getElementById('inspector-results');
+    const emptyEl  = document.getElementById('inspector-empty');
+    const statsEl  = document.getElementById('inspector-stats');
+    const scoreEl  = document.getElementById('inspector-score');
+    const issuesEl = document.getElementById('inspector-issues');
+    const charCount= document.getElementById('inspector-char-count');
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    input.addEventListener('input', () => {
+      const n = input.value.length;
+      charCount.textContent = n > 0 ? `${input.value.split('\n').length} lines · ${n} chars` : '';
+    });
+
+    clearBtn.addEventListener('click', () => {
+      input.value = '';
+      charCount.textContent = '';
+      resultsEl.classList.add('hidden');
+      emptyEl.classList.remove('hidden');
+    });
+
+    input.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') btn.click();
+    });
+
+    btn.addEventListener('click', () => {
+      const content = input.value.trim();
+      if (!content) { emptyEl.classList.remove('hidden'); resultsEl.classList.add('hidden'); return; }
+      const analysis = analyze(content);
+      render(analysis);
+      emptyEl.classList.add('hidden');
+      resultsEl.classList.remove('hidden');
+      document.getElementById('inspector-results').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    // Detect project context from content so fix messages can be specific
+    function buildContext(content) {
+      const lc = content.toLowerCase();
+      const pm = /\bpnpm\b/.test(lc) ? 'pnpm' : /\byarn\b/.test(lc) ? 'yarn' : /\bnpm\b/.test(lc) ? 'npm' : null;
+      const testFw = /\bvitest\b/.test(lc) ? 'vitest' : /\bjest\b/.test(lc) ? 'jest'
+                   : /\bpytest\b/.test(lc) ? 'pytest' : /\brspec\b/.test(lc) ? 'rspec'
+                   : /\bqunit\b/.test(lc) ? 'qunit' : /\bmocha\b/.test(lc) ? 'mocha' : null;
+      const fw = /\bember\b/.test(lc) ? 'ember' : /\bnext\.?js\b/.test(lc) ? 'nextjs'
+               : /\bvue\b/.test(lc) ? 'vue' : /\bsvelte\b/.test(lc) ? 'svelte'
+               : /\breact\b/.test(lc) ? 'react' : /\brails\b/.test(lc) ? 'rails'
+               : /\bdjango\b/.test(lc) ? 'django' : /\bnest\.?js\b/.test(lc) ? 'nestjs' : null;
+      const lang = /\btypescript\b/.test(lc) ? 'TypeScript'
+                 : /\bpython\b/.test(lc) ? 'Python'
+                 : /\bruby\b/.test(lc) ? 'Ruby'
+                 : /\bgolang\b|go build|go test/.test(lc) ? 'Go'
+                 : /\brust\b|\bcargo\b/.test(lc) ? 'Rust' : 'JavaScript';
+
+      // Extract project name from first H1 (strip "CLAUDE.md" if present)
+      const projectName = (content.match(/^#\s+(.+)/m) || [])[1]
+        ?.replace(/CLAUDE\.md/gi, '').replace(/[:-]/g, '').trim() || '';
+
+      // Derive likely commands
+      const buildCmd = pm === 'yarn' ? 'yarn build' : pm === 'pnpm' ? 'pnpm build'
+                     : pm === 'npm' ? 'npm run build' : lang === 'Go' ? 'go build ./...'
+                     : lang === 'Rust' ? 'cargo build' : 'make build';
+      const testCmd  = testFw === 'pytest' ? 'pytest -q' : testFw === 'rspec' ? 'bundle exec rspec'
+                     : testFw === 'vitest' ? `${pm||'npm'} run test` : pm === 'yarn' ? 'yarn test'
+                     : pm === 'npm' ? 'npm test' : lang === 'Go' ? 'go test ./...'
+                     : lang === 'Rust' ? 'cargo test' : 'make test';
+      const lintCmd  = /eslint|stylelint|ember-template-lint/.test(lc) ? `${pm||'npm'} run lint`
+                     : lang === 'Python' ? 'flake8 . && black --check .' : lang === 'Go' ? 'golangci-lint run'
+                     : lang === 'Rust' ? 'cargo clippy' : `${pm||'npm'} run lint`;
+
+      // Gotcha candidates from detected stack
+      const gotchas = [];
+      if (fw === 'ember' || /monorepo|workspace/.test(lc))
+        gotchas.push('Always run `' + buildCmd + '` from the root before starting apps');
+      if (/graphql/.test(lc))
+        gotchas.push('GraphQL types must be regenerated after any schema change (`yarn graphql:update`)');
+      if (/migration/.test(lc))
+        gotchas.push('Run migrations before starting the server');
+      if (lang === 'TypeScript')
+        gotchas.push('Run `yarn typecheck` after changing .ts files — type errors don\'t surface in tests');
+      if (/docker/.test(lc))
+        gotchas.push('Run `docker-compose up` before starting the dev server');
+      while (gotchas.length < 2)
+        gotchas.push('[Add a project-specific gotcha here]');
+
+      // Detected tech items for the tech stack suggestion
+      const techItems = [];
+      if (fw === 'ember') techItems.push('**Ember.js** (Octane)');
+      else if (fw === 'react') techItems.push('**React**');
+      else if (fw === 'nextjs') techItems.push('**Next.js**');
+      else if (fw === 'vue') techItems.push('**Vue**');
+      else if (fw === 'rails') techItems.push('**Ruby on Rails**');
+      else if (fw === 'django') techItems.push('**Django**');
+      else if (fw === 'nestjs') techItems.push('**NestJS**');
+      if (lang !== 'JavaScript') techItems.push(`**${lang}**`);
+      if (testFw) techItems.push(`**${testFw.charAt(0).toUpperCase()+testFw.slice(1)}** for testing`);
+      if (pm === 'yarn' && /workspace/.test(lc)) techItems.push('**Yarn Workspaces** monorepo');
+      if (/graphql/.test(lc)) techItems.push('**GraphQL** with codegen');
+      while (techItems.length < 3) techItems.push('- [Add framework / language / test runner]');
+
+      return { pm, testFw, fw, lang, projectName, buildCmd, testCmd, lintCmd, gotchas, techItems };
+    }
+
+    function analyze(content) {
+      const lines = content.split('\n');
+      const nonEmpty = lines.filter(l => l.trim().length > 0);
+      const critical = [], warnings = [], tips = [], good = [];
+      const ctx = buildContext(content);
+
+      // 1. Line count — with smart section analysis for the fix message
+      const lineCount = lines.length;
+      if (lineCount > 200) {
+        // Parse ## sections and their line counts to suggest specific extractions
+        const sectionMap = [];
+        let curSection = null, curStart = 0;
+        lines.forEach((line, i) => {
+          if (/^##\s/.test(line)) {
+            if (curSection !== null) sectionMap.push({ name: curSection, count: i - curStart });
+            curSection = line.replace(/^##\s+/, '').trim();
+            curStart = i;
+          }
+        });
+        if (curSection !== null) sectionMap.push({ name: curSection, count: lines.length - curStart });
+
+        const extractable = sectionMap
+          .filter(s => s.count > 20 && !/overview|intro|about|getting started/i.test(s.name))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 4);
+
+        let fixMsg = 'Keep the root CLAUDE.md lean (project overview + @imports only).\nMove these sections into `.claude/rules/`:\n\n';
+        if (extractable.length > 0) {
+          fixMsg += extractable.map(s => {
+            const slug = s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/, '');
+            return `@.claude/rules/${slug}.md   ← ${s.name} (~${s.count} lines)`;
+          }).join('\n');
+        } else {
+          fixMsg = 'Split sections into `.claude/rules/` files and use `@path` imports to keep the root file lean.';
+        }
+
+        critical.push({ title: `File is ${lineCount} lines — exceeds the 200-line limit`, detail: 'Claude silently truncates files past this threshold. Instructions disappear with no error message.', fix: fixMsg });
+      } else if (lineCount > 150) {
+        warnings.push({ title: `File is ${lineCount} lines — approaching the 200-line limit`, detail: 'Still fully loads now, but any additions risk crossing the truncation threshold.', fix: 'Start moving topic-specific rules into `.claude/rules/` files with `@imports`.' });
+      } else {
+        good.push(`Line count (${lineCount}) is safely within the 200-line limit`);
+      }
+
+      // 2. Empty / near-empty
+      if (nonEmpty.length < 4) {
+        critical.push({ title: 'File has almost no content', detail: 'An empty or near-empty CLAUDE.md gives Claude no persistent context to work with.', fix: 'Add at minimum: your build/test commands, tech stack, and 2–3 key conventions.' });
+      }
+
+      // 3. Vague instructions
+      const vagueWords = ['clean code','clean and readable','readable code','well-written','well written','maintainable','best practices','best practice','proper way','properly','appropriate','well-organized','well organized','high quality','high-quality','good code','good practices','elegant','nice and clean'];
+      const isInstruction = l => /^[-*•]\s|^\d+\.\s|should\b|must\b|always\b|never\b|avoid\b|don't\b|do not\b/i.test(l.trim());
+      const vagueHits = [];
+      lines.forEach((line, i) => {
+        if (isInstruction(line)) {
+          vagueWords.forEach(phrase => {
+            if (line.toLowerCase().includes(phrase) && !vagueHits.find(h => h.line === i+1)) {
+              vagueHits.push({ line: i+1, text: line.trim(), phrase });
+            }
+          });
+        }
+      });
+      if (vagueHits.length > 0) {
+        warnings.push({
+          title: `${vagueHits.length} vague instruction${vagueHits.length > 1 ? 's' : ''} detected`,
+          detail: vagueHits.slice(0,3).map(h => `Line ${h.line}: <code class="font-mono text-amber-300 text-xs">${esc(h.text.slice(0,90))}${h.text.length>90?'…':''}</code>`).join('<br>') + (vagueHits.length > 3 ? `<br><span class="text-zinc-500">…and ${vagueHits.length-3} more</span>` : ''),
+          fix: 'Replace subjective words ("clean", "maintainable") with measurable criteria — line limits, naming patterns, specific tool names, or concrete examples.'
+        });
+      } else if (nonEmpty.length > 5) {
+        good.push('No vague instructions detected — rules appear specific and verifiable');
+      }
+
+      // 4. Build command
+      const hasBuild = /\b(npm run build|yarn build|make\b|gradle\b|mvn\b|cargo build|go build|tsc\b|vite build|webpack\b)\b/i.test(content);
+      if (!hasBuild) {
+        tips.push({ title: 'No build command found', detail: 'Claude needs to know how to build the project to verify changes compile.',
+          fix: `## Commands\n\n\`\`\`bash\n${ctx.buildCmd}   # Build\n${ctx.testCmd}    # Test\n${ctx.lintCmd}    # Lint\n\`\`\`` });
+      } else { good.push('Build command found'); }
+
+      // 5. Test command — skip if @imports are used (commands likely live in an imported rules file)
+      const hasTest = /\b(npm test|yarn test|jest\b|mocha\b|pytest\b|vitest\b|go test|cargo test|rspec\b|make test)\b/i.test(content);
+      if (!hasTest && importLines.length === 0) {
+        tips.push({ title: 'No test command found', detail: 'Without a test command, Claude cannot verify changes don\'t break existing behaviour.',
+          fix: `Add to your Commands section:\n\n\`\`\`bash\n${ctx.testCmd}   # Run all tests\n\`\`\`\n\nAlways run tests after making changes to verify nothing is broken.` });
+      } else if (hasTest) { good.push('Test command found'); }
+      else { good.push('Test command likely in an @imported rules file'); }
+
+      // 6. Lint / format — skip if @imports are used (linter config likely in an imported rules file)
+      const hasLint = /\b(eslint\b|prettier\b|stylelint\b|flake8\b|black\b|rustfmt\b|golangci\b|rubocop\b|npm run lint|yarn lint)\b/i.test(content);
+      if (!hasLint && nonEmpty.length > 6 && importLines.length === 0) {
+        tips.push({ title: 'No linter or formatter mentioned', detail: 'Telling Claude which linter you use prevents it from suggesting style that conflicts with your tooling.',
+          fix: `Add to your Commands section:\n\n\`\`\`bash\n${ctx.lintCmd}         # Lint\n${ctx.lintCmd}:fix     # Auto-fix\n\`\`\`` });
+      } else if (hasLint) { good.push('Linter / formatter mentioned'); }
+      else if (importLines.length > 0) { good.push('Linter config likely in an @imported rules file'); }
+
+      // 7. Markdown headers
+      const headers = lines.filter(l => /^#{1,3}\s/.test(l));
+      if (headers.length === 0 && nonEmpty.length > 10) {
+        warnings.push({ title: 'No markdown headers found', detail: 'Unstructured files are harder for Claude to navigate and harder for you to maintain.',
+          fix: `Organise your CLAUDE.md with \`##\` headers. Suggested skeleton:\n\n## Project Overview\n\n## Commands\n\n## Architecture\n\n## Tech Stack\n\n## Testing Conventions\n\n## Common Gotchas` });
+      } else if (headers.length > 0) { good.push(`Structured with ${headers.length} section header${headers.length>1?'s':''}`); }
+
+      // 8. @imports — only tip if approaching the limit, not already over it (critical covers > 200)
+      const importLines = lines.filter(l => /^@\S/.test(l.trim()));
+      if (lineCount > 100 && lineCount <= 200 && importLines.length === 0) {
+        tips.push({ title: `${lineCount} lines with no @imports`, detail: 'The file will hit the 200-line ceiling as the project grows.',
+          fix: `Replace large sections with @imports. Your lean root CLAUDE.md:\n\n# Project\n\n[Brief overview paragraph]\n\nSee \`.claude/rules/\` for detailed reference:\n\`commands.md\`, \`architecture.md\`, \`testing.md\`\n\n@.claude/rules/commands.md\n@.claude/rules/architecture.md\n@.claude/rules/testing.md` });
+      } else if (importLines.length > 0) { good.push(`Uses @imports for modular rules (${importLines.length} import${importLines.length>1?'s':''})`); }
+
+      // 9. Measurable constraints
+      const hasMeasure = /\b\d+\s*(lines?|chars?|characters?|kb|mb|px|ms|seconds?|minutes?)\b|\bmax(imum)?\s+\d+|\bmin(imum)?\s+\d+/i.test(content);
+      if (!hasMeasure && nonEmpty.length > 8) {
+        tips.push({ title: 'No measurable constraints found', detail: '"Keep functions short" is vague; "functions over 40 lines must be split" is verifiable.',
+          fix: `Add concrete, checkable limits to your conventions section:\n\n**Code Size**\n- Functions over 40 lines must be refactored\n- Files over 300 lines should be split\n- Max line length: 100 chars (enforced by ESLint)\n\n**Naming**\n- Variables: camelCase\n- Constants: SCREAMING_SNAKE_CASE\n- Classes/types: PascalCase` });
+      } else if (hasMeasure) { good.push('Contains measurable constraints'); }
+
+      // 10. Path-specific rules (YAML frontmatter)
+      if (/^---\s*$/m.test(content) && /^paths:/m.test(content)) {
+        good.push('Uses path-scoped rules (YAML `paths:` frontmatter)');
+      }
+
+      // 11. Very long lines (outside code blocks)
+      let openFences = 0;
+      const longLines = [];
+      lines.forEach((line, i) => {
+        const stripped = line.trimStart();
+        if (stripped.startsWith('```')) { openFences++; return; }
+        const inCode = openFences % 2 !== 0;
+        if (!inCode && line.length > 220 && !stripped.startsWith('#')) longLines.push(i+1);
+      });
+      if (longLines.length > 0) {
+        // Show the actual content of each flagged line so it's clear what to fix
+        const lineDetails = longLines.slice(0, 3).map(lineNum => {
+          const text = lines[lineNum - 1] || '';
+          const preview = text.length > 110 ? text.slice(0, 107) + '…' : text;
+          return `Line ${lineNum} (${text.length} chars):\n  ${preview}`;
+        }).join('\n\n');
+
+        // For single-line case, show a concrete before/after rewrite
+        let fix;
+        if (longLines.length === 1) {
+          const text = lines[longLines[0] - 1] || '';
+          const isBullet = text.trimStart().startsWith('-') || text.trimStart().startsWith('*');
+          const splitPoint = text.indexOf('. ', 60);
+          if (isBullet && splitPoint > 0) {
+            fix = `Split at the sentence boundary:\n\nBefore:\n${text.slice(0, 110)}…\n\nAfter:\n${text.slice(0, splitPoint + 1)}\n${text.slice(splitPoint + 2)}`;
+          } else {
+            fix = `Split at a natural boundary:\n\nBefore:\n${text.slice(0, 110)}…\n\nAfter (example):\n${text.slice(0, 80).trimEnd()}\n${text.slice(80).trimStart()}`;
+          }
+        } else {
+          fix = `For each flagged line, split at a natural boundary:\n\n- Long paragraph → short intro sentence + bullet list\n- Long list item → two separate bullets\n- Long inline code → move into a \`\`\`code block\`\`\``;
+        }
+
+        tips.push({
+          title: `${longLines.length} very long line${longLines.length>1?'s':''} (line${longLines.length>1?'s':''} ${longLines.slice(0,3).join(', ')}${longLines.length>3?'…':''})`,
+          detail: lineDetails,
+          fix,
+          isEdit: true
+        });
+      }
+
+      // 12. Conflicting always/never pairs
+      const alwaysTerms = lines.filter(l => /\balways\s+(\w+)/i.test(l)).map(l => (l.match(/\balways\s+(\w+)/i)||[])[1]?.toLowerCase()).filter(Boolean);
+      const neverTerms  = lines.filter(l => /\bnever\s+(\w+)/i.test(l)).map(l => (l.match(/\bnever\s+(\w+)/i)||[])[1]?.toLowerCase()).filter(Boolean);
+      const conflicts = alwaysTerms.filter(t => neverTerms.includes(t));
+      if (conflicts.length > 0) {
+        warnings.push({ title: `Possible conflicting instructions for: ${conflicts.join(', ')}`, detail: 'Both "always" and "never" rules reference the same term, which may confuse Claude.', fix: 'Review the rules for these terms and consolidate into a single, clear instruction.' });
+      }
+
+      // 13. Missing project overview
+      const hasOverview = /\b(is a|is an|provides|used (for|to)|allows (users|you)|enables|powers|handles|responsible for|designed to|serves as)\b/i.test(content);
+      if (!hasOverview && nonEmpty.length > 8) {
+        const nameHint = ctx.projectName ? `${ctx.projectName} is` : '[Project name] is';
+        tips.push({
+          title: 'No project overview found',
+          detail: 'Claude starts every session without knowing what your product does. A brief "what is this?" paragraph helps it make better decisions throughout.',
+          fix: `Add near the top of your CLAUDE.md:\n\n## Project Overview\n\n${nameHint} a [brief description — what it does, who uses it].\n\nKey entry points:\n- [Main service or app and its purpose]\n- [Secondary service or app]\n\nBuilt with: ${ctx.techItems.slice(0,2).join(', ')}.`
+        });
+      } else if (hasOverview) {
+        good.push('Project overview found — Claude knows what the product does');
+      }
+
+      // 14. Missing "Common Gotchas" / caveats section
+      const hasGotchas = /^#{1,3}\s.*(gotcha|caveat|pitfall|watch\s*out|known\s*issue|footgun|tricky|quirk|note|warning|caution)/im.test(content);
+      if (!hasGotchas && nonEmpty.length > 15) {
+        tips.push({
+          title: 'No "Common Gotchas" section found',
+          detail: 'Every project has non-obvious traps that Claude will repeatedly fall into without a heads-up. This is often the highest-value section in a CLAUDE.md.',
+          fix: `Add to your CLAUDE.md:\n\n## Common Gotchas\n\n${ctx.gotchas.map(g => `- ${g}`).join('\n')}\n- [Add more project-specific traps here]`
+        });
+      } else if (hasGotchas) {
+        good.push('Has a "Common Gotchas" / caveats section — prevents repeated mistakes');
+      }
+
+      // 15. Missing tech stack
+      const frameworks = ['ember', 'react', 'vue', 'angular', 'next.js', 'nextjs', 'nuxt', 'svelte', 'remix', 'rails', 'django', 'fastapi', 'express', 'nestjs', 'spring', 'laravel'];
+      const languages  = ['typescript', 'javascript', 'python', 'ruby', 'go', 'rust', 'java', 'kotlin', 'swift', 'elixir', 'php', 'scala'];
+      const hasTech = [...frameworks, ...languages].some(t => content.toLowerCase().includes(t));
+      if (!hasTech && nonEmpty.length > 8) {
+        tips.push({
+          title: 'No tech stack mentioned',
+          detail: 'Without knowing the framework and language, Claude may suggest patterns from the wrong ecosystem.',
+          fix: `Add a tech stack section:\n\n## Tech Stack\n\n${ctx.techItems.map(t => `- ${t}`).join('\n')}`
+        });
+      } else if (hasTech) {
+        good.push('Tech stack mentioned');
+      }
+
+      // 16. Multi-step protocol without a skill
+      // Only flag when steps appear as section headers (## Step 1, ### Step 2…),
+      // which is the .claude/skills/ format — not normal numbered list items (1. Do this).
+      const stepHeaderMatches = content.match(/^#{1,3}\s+step\s+\d+/gim) || [];
+      const mentionsSkill = /\.claude\/skills|\/skill|SKILL\.md/i.test(content);
+      if (stepHeaderMatches.length >= 3 && !mentionsSkill) {
+        tips.push({
+          title: 'Multi-step protocol detected — consider a skill',
+          detail: `Found ${stepHeaderMatches.length} step-by-step section headers describing a workflow. Keeping this in CLAUDE.md means it loads every session even when irrelevant.`,
+          fix: 'Move the protocol to `.claude/skills/<name>/SKILL.md` so it loads on-demand:\n---\nname: my-protocol\ndescription: When and why to run this\nallowed-tools: Bash, Read, Edit\n---\n## Step 1 — ...\n## Step 2 — ...'
+        });
+      } else if (mentionsSkill) {
+        good.push('References `.claude/skills/` for complex on-demand workflows');
+      }
+
+      // 17. Proactive test maintenance instruction
+      const hasTestInstruction = /test.*(same commit|update.*test|search.*test|find.*test|proactive|alongside|together)/i.test(content)
+        || /(modif|chang|updat).*(component|code|behav).*(test|spec)/i.test(content);
+      const hasTestMentionAtAll = /\btest(s|ing)?\b/i.test(content);
+      const testExt = ctx.lang === 'Python' ? 'py' : ctx.lang === 'Ruby' ? 'rb' : ctx.lang === 'Go' ? 'go' : 'ts';
+      if (!hasTestInstruction && hasTestMentionAtAll) {
+        tips.push({
+          title: 'No proactive test maintenance instruction',
+          detail: 'Without an explicit instruction, Claude may change component behaviour without updating the tests that cover it.',
+          fix: `Add to your Testing Conventions section:\n\n**Proactive Test Maintenance:**\n- When modifying component behavior, ALWAYS search for and\n  update affected tests in the SAME commit\n- Search pattern: \`Glob: **/*{component-name}*.test.${testExt}\`\n- Read the test files, update them to match new behavior\n- Run tests to verify they pass before committing\n- Don't wait for CI failures — be proactive`
+        });
+      } else if (hasTestInstruction) {
+        good.push('Instructs Claude to maintain tests proactively');
+      }
+
+      // 18. Auto memory alignment
+      const correctionPatterns = /\b(don'?t|do not|never|avoid)\s+\w|\bprefer\b.+\bover\b|\binstead of\b/i;
+      const hasCorrectionRules = lines.some(l => correctionPatterns.test(l));
+      const mentionsAutoMemory = /\/memory\b|auto.?memory|MEMORY\.md|~\/.claude\/projects/i.test(content);
+      if (nonEmpty.length > 15 && hasCorrectionRules && !mentionsAutoMemory) {
+        tips.push({
+          title: 'Style rules may duplicate auto-memory corrections',
+          detail: 'This file contains "don\'t / avoid / prefer" rules that often originate from correcting Claude mid-session. Those corrections may already be saved in auto-memory — duplicating them in CLAUDE.md creates drift if one gets updated and the other doesn\'t.',
+          fix: `Run /memory to inspect what Claude has already learned:\n\n  /memory\n\nLook for recurring corrections that match your CLAUDE.md rules.\nIf they overlap, consolidate into a canonical rules file:\n\n.claude/rules/style.md\n---\n# Preferred patterns (single source of truth)\n\n- [Move your "prefer X over Y" rules here]\n- [Move your "never do Z" rules here]\n\nThen @-import it:\n@.claude/rules/style.md\n\nThis keeps auto-memory and CLAUDE.md from diverging.`,
+        });
+      } else if (mentionsAutoMemory) {
+        good.push('References auto-memory or /memory for cross-referencing corrections');
+      }
+
+      const score = Math.max(0, Math.min(100, 100 - critical.length*30 - warnings.length*10 - tips.length*3));
+      const stats = {
+        lines: lineCount, headers: headers.length,
+        imports: importLines.length,
+        codeBlocks: Math.floor((content.match(/```/g)||[]).length / 2),
+        words: content.split(/\s+/).filter(Boolean).length,
+      };
+      return { critical, warnings, tips, good, stats, score };
+    }
+
+    function render({ critical, warnings, tips, good, stats, score }) {
+      // Stats
+      const statDefs = [
+        { label: 'Lines', value: stats.lines, color: stats.lines > 200 ? '#f87171' : stats.lines > 150 ? '#fbbf24' : '#34d399' },
+        { label: 'Sections', value: stats.headers, color: '#a1a1aa' },
+        { label: '@imports', value: stats.imports, color: '#a1a1aa' },
+        { label: 'Code blocks', value: stats.codeBlocks, color: '#a1a1aa' },
+        { label: 'Words', value: stats.words, color: '#a1a1aa' },
+      ];
+      statsEl.innerHTML = statDefs.map(s =>
+        `<div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700">
+           <span class="text-sm font-bold" style="color:${s.color}">${s.value}</span>
+           <span class="text-xs text-zinc-500">${s.label}</span>
+         </div>`).join('');
+
+      // Score
+      const sc = score >= 75
+        ? { bg:'rgba(52,211,153,0.08)', bdr:'rgba(52,211,153,0.25)', clr:'#34d399', label:'Looking good' }
+        : score >= 45
+        ? { bg:'rgba(251,191,36,0.08)',  bdr:'rgba(251,191,36,0.25)',  clr:'#fbbf24', label:'Needs improvement' }
+        : { bg:'rgba(248,113,113,0.08)', bdr:'rgba(248,113,113,0.25)', clr:'#f87171', label:'Needs attention' };
+      scoreEl.style.cssText = `background:${sc.bg}; border:1px solid ${sc.bdr};`;
+      scoreEl.innerHTML = `
+        <div class="flex items-center justify-center w-12 h-12 rounded-full border-2 flex-shrink-0" style="border-color:${sc.clr}">
+          <span class="text-lg font-bold" style="color:${sc.clr}">${score}</span>
+        </div>
+        <div>
+          <div class="text-sm font-semibold" style="color:${sc.clr}">${sc.label}</div>
+          <div class="text-xs text-zinc-400 mt-0.5">${critical.length} critical · ${warnings.length} warning${warnings.length!==1?'s':''} · ${tips.length} tip${tips.length!==1?'s':''} · ${good.length} good</div>
+        </div>`;
+
+      // Issues
+      const groups = [
+        { items: critical, bg:'rgba(248,113,113,0.07)', bdr:'rgba(248,113,113,0.2)', clr:'#f87171', icon:'✗', label:'Critical' },
+        { items: warnings, bg:'rgba(251,191,36,0.07)',  bdr:'rgba(251,191,36,0.2)',  clr:'#fbbf24', icon:'⚠', label:'Warning' },
+        { items: tips,     bg:'rgba(59,130,246,0.07)',  bdr:'rgba(59,130,246,0.2)',  clr:'#60a5fa', icon:'›', label:'Tip' },
+        { items: good,     bg:'rgba(52,211,153,0.07)',  bdr:'rgba(52,211,153,0.2)',  clr:'#34d399', icon:'✓', label:'Good' },
+      ];
+      issuesEl.innerHTML = groups.filter(g => g.items.length > 0).map(g => `
+        <div class="rounded-lg border overflow-hidden" style="background:${g.bg}; border-color:${g.bdr}">
+          <div class="px-4 py-2 border-b flex items-center gap-2" style="border-color:${g.bdr}">
+            <span class="text-xs font-bold" style="color:${g.clr}">${g.label}</span>
+            <span class="text-xs text-zinc-600">(${g.items.length})</span>
+          </div>
+          ${g.items.map(item => {
+            if (typeof item === 'string') return `
+              <div class="px-4 py-3 flex gap-2.5 items-center border-b last:border-b-0" style="border-color:${g.bdr}">
+                <span class="font-bold flex-shrink-0" style="color:${g.clr}">${g.icon}</span>
+                <p class="text-sm text-zinc-400">${esc(item)}</p>
+              </div>`;
+            return `
+              <div class="px-4 py-3 border-b last:border-b-0" style="border-color:${g.bdr}">
+                <div class="flex gap-2.5 items-start">
+                  <span class="font-bold flex-shrink-0 mt-0.5" style="color:${g.clr}">${g.icon}</span>
+                  <div class="min-w-0">
+                    <p class="text-sm font-semibold text-zinc-200 mb-1">${esc(item.title)}</p>
+                    ${item.detail ? `<p class="text-xs text-zinc-400 leading-relaxed mb-2">${item.detail}</p>` : ''}
+                    ${item.fix ? `<div class="fix-block mt-2">
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-zinc-500 font-semibold uppercase tracking-wide">${item.isEdit ? 'How to fix' : 'Suggested addition'}</span>
+                        <button class="fix-copy-btn text-xs border rounded px-2 py-0.5 transition-colors" style="color:#71717a; border-color:#3f3f46; background:transparent;" onmouseenter="this.style.color='#a1a1aa'" onmouseleave="this.style.color='#71717a'">Copy</button>
+                      </div>
+                      <pre class="fix-pre text-xs text-zinc-300 bg-zinc-900/80 rounded px-3 py-2 font-mono leading-relaxed whitespace-pre-wrap border border-zinc-800">${esc(item.fix)}</pre>
+                    </div>` : ''}
+                  </div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>`).join('');
+
+      // Wire up copy buttons on fix blocks
+      issuesEl.querySelectorAll('.fix-copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pre = btn.closest('.fix-block').querySelector('.fix-pre');
+          const text = pre ? pre.textContent : '';
+          navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = 'Copied!';
+            btn.style.color = '#34d399';
+            btn.style.borderColor = '#34d399';
+            setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = '#71717a'; btn.style.borderColor = '#3f3f46'; }, 1800);
+          }).catch(() => {
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;';
+            document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+            btn.textContent = 'Copied!'; btn.style.color = '#34d399';
+            setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = '#71717a'; }, 1800);
+          });
+        });
+      });
+    }
+  }
+
+  // ─── INIT ───
+  document.addEventListener('DOMContentLoaded', () => {
+    initTabs();
+    hljs.highlightAll();
+    initCopyButtons();
+    initSearch();
+    initScrollspy();
+    initInspector();
+
+    // Audit prompt copy button
+    const auditBtn = document.querySelector('.audit-copy-btn');
+    const auditPre = document.querySelector('.audit-prompt-pre');
+    if (auditBtn && auditPre) {
+      auditBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(auditPre.textContent).then(() => {
+          auditBtn.textContent = 'Copied!';
+          auditBtn.classList.add('text-emerald-400', 'border-emerald-600');
+          setTimeout(() => {
+            auditBtn.textContent = 'Copy';
+            auditBtn.classList.remove('text-emerald-400', 'border-emerald-600');
+          }, 1800);
+        });
+      });
+    }
+  });
+</script>
+
+</body>
+</html>
